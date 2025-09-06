@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
-import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/model/cheque_deposit.dart';
 import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/model/payment.dart';
@@ -55,8 +54,6 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
 
   Future<void> updateInvoiceBalance({required int chequeNo}) async {
     ref.watch(chequeNotifierProvider);
-    Cheque? cheque =
-        await ref.read(chequeNotifierProvider.notifier).getCheque(chequeNo);
     Payment? payment = await ref
         .read(paymentNotifierProvider.notifier)
         .getPaymentWithChequeNo(chequeNo);

@@ -387,7 +387,7 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
         await ImagePicker().pickImage(source: ImageSource.gallery);
     if (returnedImage == null) return;
     setState(() {
-      _selectedImage = File(returnedImage!.path);
+      _selectedImage = File(returnedImage.path);
     });
   }
 
@@ -396,7 +396,7 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
         await ImagePicker().pickImage(source: ImageSource.camera);
     if (returnedImage == null) return;
     setState(() {
-      _selectedImage = File(returnedImage!.path);
+      _selectedImage = File(returnedImage.path);
     });
   }
 
@@ -410,7 +410,7 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
 
   Future uploadFileToFirebase() async {
     final path = "files/${_selectedImage!}";
-    final file = File(_selectedImage!.path!);
+    final file = File(_selectedImage!.path);
 
     final ref = FirebaseStorage.instance.ref().child(path);
     ref.putFile(file);

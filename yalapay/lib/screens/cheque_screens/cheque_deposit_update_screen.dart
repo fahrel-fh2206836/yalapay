@@ -101,7 +101,7 @@ class _ChequeDepositUpdateScreenState
             invoice.updateStatus();
             ref
                 .read(invoiceNotifierProvider.notifier)
-                .removeInvoice(invoice!.id);
+                .removeInvoice(invoice.id);
             ref.read(invoiceNotifierProvider.notifier).addInvoice(invoice);
           },
           error: (err, stack) => Text('Error: $err'),

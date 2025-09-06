@@ -263,15 +263,16 @@ class YalapayRepo {
   Future<void> removePayment(String id) => paymentsRef.doc(id).delete();
 
   Stream<List<Payment>> filterPaymentByAmount(
-          double amount, String invoiceId) =>
-      paymentsRef
-          .where("amount", isGreaterThanOrEqualTo: amount)
-          .where('invoiceNo', isEqualTo: invoiceId)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map(
-                  (doc) => Payment.fromJson(doc.data() as Map<String, dynamic>))
-              .toList());
+      double minAmount, String invoiceId) {
+    return paymentsRef
+        .where('invoiceNo', isEqualTo: invoiceId)
+        .where('amount', isGreaterThanOrEqualTo: minAmount)
+        .orderBy('amount') 
+        .snapshots()
+        .map((snapshot) => snapshot.docs
+            .map((doc) => Payment.fromJson(doc.data() as Map<String, dynamic>))
+            .toList());
+  }
 
   Stream<List<Payment>> filterPaymentByDate(DateTime date, String invoiceId) =>
       paymentsRef
