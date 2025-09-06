@@ -43,16 +43,40 @@ class ChequeDepositDetailsScreenState
             .read(chequeDepositNotifierProvider.notifier)
             .getChequesNoList(widget.chequeDepositId),
         builder: (context, snapshot1) {
-          if (snapshot1.data == null) {
-            return const CircularProgressIndicator();
+          if (snapshot1.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.all(24.0),
+              child: CircularProgressIndicator(),
+            );
+          }
+          if (snapshot1.hasError) {
+            return Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Text(
+                'Failed to load invoices: ${snapshot1.error}',
+                style: getTextStyle('small', color: Colors.redAccent),
+              ),
+            );
           }
           return FutureBuilder(
               future: ref
                   .read(chequeNotifierProvider.notifier)
                   .getChequesByNo(snapshot1.data!),
               builder: (context, snapshot2) {
-                if (snapshot2.data == null) {
-                  return const CircularProgressIndicator();
+                if (snapshot2.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: CircularProgressIndicator(),
+                  );
+                }
+                if (snapshot2.hasError) {
+                  return Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Failed to load invoices: ${snapshot2.error}',
+                      style: getTextStyle('small', color: Colors.redAccent),
+                    ),
+                  );
                 }
                 final totalAmount = snapshot2.data!
                     .map((c) => c.amount)

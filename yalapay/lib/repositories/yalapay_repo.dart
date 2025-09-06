@@ -196,16 +196,59 @@ class YalapayRepo {
           .map((doc) => Invoice.fromJson2(doc.data() as Map<String, dynamic>))
           .toList());
 
-  Stream<List<Invoice>> filterInvoiceByDate(
-          DateTime fromDate, DateTime toDate) =>
-      invoiceRef
-          .where("dueDate", isGreaterThanOrEqualTo: fromDate)
-          .where("dueDate", isLessThanOrEqualTo: toDate)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map((doc) =>
-                  Invoice.fromJson2(doc.data() as Map<String, dynamic>))
-              .toList());
+  Future<double> totalInvoiceBalanceBetween(
+    DateTime fromDate,
+    DateTime toDate, {
+    bool openOnly = true,
+  }) async {
+    final start = DateTime(fromDate.year, fromDate.month, fromDate.day);
+    final endExclusive = DateTime(toDate.year, toDate.month, toDate.day)
+        .add(const Duration(days: 1));
+
+    final qs = await invoiceRef
+        .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('dueDate', isLessThan: Timestamp.fromDate(endExclusive))
+        .get();
+
+    double sum = 0.0;
+    for (final doc in qs.docs) {
+      final data = doc.data() as Map<String, dynamic>; // Map<String, dynamic>
+      final bal = data['invoiceBalance'] is num
+          ? (data['invoiceBalance'] as num).toDouble()
+          : double.tryParse(data['invoiceBalance']?.toString() ?? '') ?? 0.0;
+      if (!openOnly || bal > 0) sum += bal;
+    }
+    return sum;
+  }
+
+  Future<double> totalInvoiceBalanceAfterNow({bool openOnly = true}) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+
+    final qs = await invoiceRef
+        .where('dueDate', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .get();
+
+    double sum = 0.0;
+    for (final doc in qs.docs) {
+      final data = doc.data() as Map<String, dynamic>; // Map<String, dynamic>
+      final bal = data['invoiceBalance'] is num
+          ? (data['invoiceBalance'] as num).toDouble()
+          : double.tryParse(data['invoiceBalance']?.toString() ?? '') ?? 0.0;
+      if (!openOnly || bal > 0) sum += bal;
+    }
+    return sum;
+  }
+
+  Future<double> totalInvoiceBalanceInNextDays(
+    int days, {
+    bool openOnly = true,
+  }) async {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day);
+    final endExclusive = start.add(Duration(days: days + 1));
+    return totalInvoiceBalanceBetween(start, endExclusive, openOnly: openOnly);
+  }
 
   Stream<List<Invoice>> filterInvoiceById(String value) => invoiceRef
       .where("id", isGreaterThanOrEqualTo: value, isLessThan: '${value}z')

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/model/payment.dart';
@@ -69,35 +68,6 @@ class InvoiceNotifier extends AsyncNotifier<List<Invoice>> {
     _repo.updateInvoice(invoice);
   }
 
-  void filterByDate(String dateFrom, String dateTo) {
-    DateTime _dateFrom;
-    DateTime _dateTo;
-
-    if (dateTo.isEmpty) {
-      _dateFrom = DateTime.parse("2024-10-02");
-    } else {
-      try {
-        _dateFrom = DateTime.parse(dateFrom);
-      } catch (e) {
-        _dateFrom = DateTime.parse("2024-10-02");
-        const SnackBar(content: Text("Error"));
-      }
-    }
-
-    if (dateTo.isEmpty) {
-      _dateTo = DateTime.now();
-    } else {
-      try {
-        _dateTo = DateTime.parse(dateTo);
-      } catch (e) {
-        _dateTo = DateTime.now();
-        const SnackBar(content: Text("Error"));
-      }
-    }
-
-    _repo.filterInvoiceByDate(_dateFrom, _dateTo);
-  }
-
   Future<double> getTotal() => _repo.getTotalAmountOfInvoices();
 
   Stream<List<Invoice>> filterByStatus(String status) =>
@@ -111,6 +81,21 @@ class InvoiceNotifier extends AsyncNotifier<List<Invoice>> {
     _repo.sortInvoicesById().listen((invoices) {
       state = AsyncData(invoices);
     });
+  }
+
+  Future<Map<String, double>> getAllInvoiceDuePendingBalance() async {
+    final repo =
+        _repo; // or: final repo = await ref.watch(repoProvider.future);
+
+    final all = await repo.totalInvoiceBalanceAfterNow(openOnly: true);
+    final due30 = await repo.totalInvoiceBalanceInNextDays(30, openOnly: true);
+    final due60 = await repo.totalInvoiceBalanceInNextDays(60, openOnly: true);
+
+    return {
+      'All': all,
+      'Due in 30 Days': due30,
+      'Due in 60 Days': due60,
+    };
   }
 }
 

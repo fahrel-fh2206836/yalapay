@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
+import 'package:yalapay/providers/invoice_provider.dart';
 import 'package:yalapay/providers/logged_in_user_provider.dart';
 import 'package:yalapay/routes/app_router.dart';
 import 'package:yalapay/services/auth_service.dart';
@@ -116,91 +117,122 @@ class InvoiceSummary extends ConsumerStatefulWidget {
 
 class _InvoiceSummaryState extends ConsumerState<InvoiceSummary> {
   String selectedFilter = "All";
-  final Map<String, String> invoiceValues = {
-    "All": "QR 99.99",
-    "Due in 30 Days": "QR 33.33",
-    "Due in 60 Days": "QR 66.66",
-  };
+  late Future<Map<String, double>> _summaryFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryFuture = ref
+        .read(invoiceNotifierProvider.notifier)
+        .getAllInvoiceDuePendingBalance();
+  }
 
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(loggedInUserNotifierProvider);
     final String formattedDate = DateFormat('MM/dd').format(DateTime.now());
 
-    return Column(
-      children: [
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Text(
-                "Invoice Statistics",
-                style: getTextStyle('medium', color: Colors.white),
-              ),
+    return FutureBuilder<Map<String, double>>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: CircularProgressIndicator(),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              'Failed to load invoices: ${snapshot.error}',
+              style: getTextStyle('small', color: Colors.redAccent),
             ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                child: FilterDropdown(
-                  selectedFilter: selectedFilter,
-                  options: invoiceValues.keys.toList(),
-                  onSelected: (value) {
-                    setState(() {
-                      selectedFilter = value!;
-                    });
-                  },
+          );
+        }
+
+        final invoiceValues = snapshot.data ??
+            const {
+              'All': 0.0,
+              'Due in 30 Days': 0.0,
+              'Due in 60 Days': 0.0,
+            };
+
+        if (!invoiceValues.containsKey(selectedFilter)) {
+          selectedFilter = invoiceValues.keys.first;
+        }
+
+        return Column(
+          children: [
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    "Invoice Statistics",
+                    style: getTextStyle('medium', color: Colors.white),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: FilterDropdown(
+                      selectedFilter: selectedFilter,
+                      options: invoiceValues.keys.toList(),
+                      onSelected: (value) {
+                        if (value == null) return;
+                        setState(() => selectedFilter = value);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 5),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Container(
+                padding: const EdgeInsets.all(24.0),
+                height: screenHeight(context) * 0.23,
+                width: screenWidth(context),
+                decoration: BoxDecoration(
+                  boxShadow: containerShadow(),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomLeft,
+                    colors: [
+                      Color.fromARGB(255, 237, 139, 237),
+                      Color.fromARGB(255, 191, 64, 191),
+                      Color.fromARGB(255, 81, 21, 111),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Image.asset("assets/images/yalapay_logo_white.png",
+                        width: 44),
+                    Text("Total Invoices ($selectedFilter)",
+                        style: getTextStyle('small', color: Colors.white)),
+                    Text(
+                      (invoiceValues[selectedFilter] ?? 0).toStringAsFixed(2),
+                      style: getTextStyle('xxlargeBold', color: Colors.white),
+                    ),
+                    Text(
+                      "${user.firstName} ${user.lastName} • $formattedDate",
+                      style: getTextStyle('small', color: Colors.white),
+                    ),
+                  ],
                 ),
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 5),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Container(
-            padding: const EdgeInsets.all(24.0),
-            height: screenHeight(context) * 0.23,
-            width: screenWidth(context),
-            decoration: BoxDecoration(
-              boxShadow: containerShadow(),
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomLeft,
-                colors: [
-                  Color.fromARGB(255, 237, 139, 237),
-                  Color.fromARGB(255, 191, 64, 191),
-                  Color.fromARGB(255, 81, 21, 111),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Image.asset(
-                  "assets/images/yalapay_logo_white.png",
-                  width: 44,
-                ),
-                Text(
-                  "Total Invoices ($selectedFilter)",
-                  style: getTextStyle('small', color: Colors.white),
-                ),
-                Text(
-                  invoiceValues[selectedFilter]!,
-                  style: getTextStyle('xxlargeBold', color: Colors.white),
-                ),
-                Text(
-                  "${user.firstName} ${user.lastName} • $formattedDate",
-                  style: getTextStyle('small', color: Colors.white),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
+        );
+      },
     );
   }
 }
