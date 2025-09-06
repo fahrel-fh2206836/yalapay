@@ -183,6 +183,10 @@ class YalapayRepo {
 
   Future<void> deleteInvoice(String id) => invoiceRef.doc(id).delete();
 
+  Future<void> deleteInvoiceByCustId(String custId) =>
+      invoiceRef.where("customerId", isEqualTo: custId).get().then((snapshot) =>
+          snapshot.docs.forEach((doc) => invoiceRef.doc(doc.id).delete()));
+
   Future<void> updateInvoice(Invoice invoice) =>
       invoiceRef.doc(invoice.id).update(invoice.toJson());
 

@@ -48,6 +48,10 @@ class InvoiceNotifier extends AsyncNotifier<List<Invoice>> {
     _repo.deleteInvoice(id);
   }
 
+  void removeInvoiceByCustId(String custId) {
+    _repo.deleteInvoiceByCustId(custId);
+  }
+
   void addInvoice(Invoice invoice) {
     _repo.addInvoice(invoice);
   }
