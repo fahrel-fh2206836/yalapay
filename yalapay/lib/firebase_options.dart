@@ -3,7 +3,6 @@
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
@@ -41,47 +40,47 @@ class DefaultFirebaseOptions {
     }
   }
 
-  static FirebaseOptions get web => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_WEB_API_KEY']!,
-        appId: dotenv.env['FIREBASE_WEB_APP_ID']!,
-        messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
-        projectId: dotenv.env['FIREBASE_PROJECT_ID']!,
-        authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN']!,
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET']!,
-      );
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyAEnDnJEcOqYZAc10YVkcno4wUzDf_adKA',
+    appId: '1:320729121145:web:5adbe65fbef800421b6fa8',
+    messagingSenderId: '320729121145',
+    projectId: 't3-yalapay',
+    authDomain: 't3-yalapay.firebaseapp.com',
+    storageBucket: 't3-yalapay.firebasestorage.app',
+  );
 
-  static FirebaseOptions get android => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_ANDROID_API_KEY']!,
-        appId: dotenv.env['FIREBASE_ANDROID_APP_ID']!,
-        messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
-        projectId: dotenv.env['FIREBASE_PROJECT_ID']!,
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET']!,
-      );
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyDG5zeuTuPM6apM3oMRf7VlmnvziKdyXGY',
+    appId: '1:320729121145:android:be7adf3d611d61321b6fa8',
+    messagingSenderId: '320729121145',
+    projectId: 't3-yalapay',
+    storageBucket: 't3-yalapay.firebasestorage.app',
+  );
 
-  static FirebaseOptions get ios => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_IOS_API_KEY']!,
-        appId: dotenv.env['FIREBASE_IOS_APP_ID']!,
-        messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
-        projectId: dotenv.env['FIREBASE_PROJECT_ID']!,
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET']!,
-        iosBundleId: dotenv.env['IOS_BUNDLE_ID']!,
-      );
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyB23TLuIzYyXBj2ZXL08F8Kp92_DnAY0Es',
+    appId: '1:320729121145:ios:f827bf17078380791b6fa8',
+    messagingSenderId: '320729121145',
+    projectId: 't3-yalapay',
+    storageBucket: 't3-yalapay.firebasestorage.app',
+    iosBundleId: 'com.nitrogen.yalapay',
+  );
 
-  static FirebaseOptions get macos => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_IOS_API_KEY']!,
-        appId: dotenv.env['FIREBASE_MACOS_APP_ID']!,
-        messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
-        projectId: dotenv.env['FIREBASE_PROJECT_ID']!,
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET']!,
-        iosBundleId: dotenv.env['MACOS_BUNDLE_ID']!,
-      );
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyB23TLuIzYyXBj2ZXL08F8Kp92_DnAY0Es',
+    appId: '1:320729121145:ios:df82b679b42e308e1b6fa8',
+    messagingSenderId: '320729121145',
+    projectId: 't3-yalapay',
+    storageBucket: 't3-yalapay.firebasestorage.app',
+    iosBundleId: 'com.example.yalapay',
+  );
 
-  static FirebaseOptions get windows => FirebaseOptions(
-        apiKey: dotenv.env['FIREBASE_WEB_API_KEY']!,
-        appId: dotenv.env['FIREBASE_WINDOWS_APP_ID']!,
-        messagingSenderId: dotenv.env['FIREBASE_MESSAGING_SENDER_ID']!,
-        projectId: dotenv.env['FIREBASE_PROJECT_ID']!,
-        authDomain: dotenv.env['FIREBASE_AUTH_DOMAIN']!,
-        storageBucket: dotenv.env['FIREBASE_STORAGE_BUCKET']!,
-      );
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyAEnDnJEcOqYZAc10YVkcno4wUzDf_adKA',
+    appId: '1:320729121145:web:00816c337d15dee81b6fa8',
+    messagingSenderId: '320729121145',
+    projectId: 't3-yalapay',
+    authDomain: 't3-yalapay.firebaseapp.com',
+    storageBucket: 't3-yalapay.firebasestorage.app',
+  );
 }
