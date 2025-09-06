@@ -114,7 +114,7 @@ class _CustomerDetailsState extends ConsumerState<CustomerDetailsScreen> {
                 ),
                 actions: [
                   IconButton(
-                    icon: Icon(isEditing ? Icons.done : Icons.edit),
+                    icon: Icon(isEditing ? Icons.cancel : Icons.edit),
                     onPressed: () {
                       setState(() {
                         isEditing = !isEditing;

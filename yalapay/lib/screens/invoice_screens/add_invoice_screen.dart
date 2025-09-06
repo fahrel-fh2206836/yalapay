@@ -19,9 +19,9 @@ class AddInvoiceScreen extends ConsumerStatefulWidget {
 
 class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
   final TextEditingController amountController = TextEditingController();
-  final TextEditingController custIdController = TextEditingController();
+  final TextEditingController custNameController = TextEditingController();
   DateTime? selectedDueDate;
-  String? companyText;
+  String? customerId;
   List<Customer> filteredCustomers = [];
 
   @override
@@ -41,14 +41,14 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
   @override
   void dispose() {
     amountController.dispose();
-    custIdController.dispose();
+    custNameController.dispose();
     super.dispose();
   }
 
   void clearAll() {
     amountController.clear();
-    custIdController.clear();
-    companyText = null;
+    custNameController.clear();
+    customerId = null;
     setState(() {
       selectedDueDate = null;
       ref.watch(customerNotifierProvider).when(
@@ -169,16 +169,16 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
             children: [
               AddScreensTextField(
                 label: "Search Company Name",
-                controller: custIdController,
+                controller: custNameController,
                 activeBorderColor: lightSecondary,
                 onChanged: (value) {
                   filterCustomers(value);
                 },
-                suffixIcon: custIdController.text.isNotEmpty
+                suffixIcon: custNameController.text.isNotEmpty
                     ? IconButton(
                         icon: const Icon(Icons.clear, color: Colors.grey),
                         onPressed: () {
-                          custIdController.clear();
+                          custNameController.clear();
                           filterCustomers('');
                         },
                       )
@@ -217,8 +217,8 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
                             ),
                             onPressed: () {
                               setState(() {
-                                custIdController.text = customer.companyName;
-                                companyText = customer.companyName;
+                                custNameController.text = customer.companyName;
+                                customerId = customer.id;
                               });
                               filterCustomers(customer.companyName);
                             },
@@ -369,8 +369,8 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
       data: (invoices) {
         final invoice = Invoice(
           id: '-1',
-          customerId: custIdController.text,
-          customerName: companyText ?? '',
+          customerId: customerId ?? '',
+          customerName: custNameController.text,
           amount: double.parse(amountController.text),
           invoiceDate: DateTime.now().toString().substring(0, 10),
           dueDate: selectedDueDate!.toIso8601String().split('T').first,

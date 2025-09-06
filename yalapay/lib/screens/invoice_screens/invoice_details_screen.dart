@@ -151,7 +151,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
               ),
               actions: [
                 IconButton(
-                  icon: Icon(isEditing ? Icons.done : Icons.edit),
+                  icon: Icon(isEditing ? Icons.cancel : Icons.edit),
                   onPressed: () {
                     setState(() {
                       isEditing = !isEditing;
@@ -197,7 +197,7 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
                             const SizedBox(width: 20),
                             Text(
                               "ID: ${invoice.id}",
-                              style: getTextStyle('largeBold',
+                              style: getTextStyle('mediumBold',
                                   color: Colors.white),
                             ),
                           ],

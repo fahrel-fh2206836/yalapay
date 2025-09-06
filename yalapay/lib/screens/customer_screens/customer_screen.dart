@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/customer.dart';
 import 'package:yalapay/providers/customer_provider.dart';
+import 'package:yalapay/providers/invoice_provider.dart';
 import 'package:yalapay/routes/app_router.dart';
 import 'package:yalapay/styling/background.dart';
 import 'package:yalapay/widget/delete_record_confirmation.dart';
@@ -210,13 +211,15 @@ void showDeleteDialog(BuildContext context, WidgetRef ref, Customer customer) {
     context: context,
     builder: (context) {
       return ConfirmDeleteDialog(
-        title: 'Customer',
-        message: 'Are you sure you want to delete this customer?',
-        itemToDelete: customer,
-        deleteFunction: (customer) => ref
-            .read(customerNotifierProvider.notifier)
-            .removeCustomer(customer.id),
-      );
+          title: 'Customer',
+          message: 'Are you sure you want to delete this customer?',
+          itemToDelete: customer,
+          deleteFunction: (customer) {
+            ref
+                .read(customerNotifierProvider.notifier)
+                .removeCustomer(customer.id);
+            ref.read(invoiceNotifierProvider.notifier).removeInvoice(customer.id);
+          });
     },
   );
 }
