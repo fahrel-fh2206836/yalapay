@@ -218,9 +218,7 @@ void showDeleteDialog(BuildContext context, WidgetRef ref, Customer customer) {
             ref
                 .read(customerNotifierProvider.notifier)
                 .removeCustomer(customer.id);
-            ref
-                .read(invoiceNotifierProvider.notifier)
-                .removeInvoiceByCustId(customer.id);
+            ref.read(invoiceNotifierProvider.notifier).removeInvoice(customer.id);
           });
     },
   );
