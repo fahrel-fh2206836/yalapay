@@ -82,22 +82,27 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
   }
 
   void updateInvoice() {
-    final invoice = ref.read(selectedInvoiceNotifierProvider);
-
-    if (dueDate != null && dueDate != invoice.dueDate) {
-      ref
-          .read(invoiceNotifierProvider.notifier)
-          .updateInvoiceDue(dueDate!, invoice.id);
-    }
-
     setState(() {
-      isEditing = false;
+      final selectedInvoice = ref.read(selectedInvoiceNotifierProvider);
+      selectedInvoice.when(
+        data: (invoice) {
+          if (dueDate != null && dueDate != invoice.dueDate) {
+            ref
+                .read(invoiceNotifierProvider.notifier)
+                .updateInvoiceDue(dueDate!, invoice.id);
+          }
+
+          isEditing = false;
+        },
+        error: (err, stack) => Text('Error: $err'),
+        loading: () => const CircularProgressIndicator(),
+      );
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final invoice = ref.watch(selectedInvoiceNotifierProvider);
+    final selectedInvoice = ref.watch(selectedInvoiceNotifierProvider);
     ref.watch(paymentNotifierProvider);
     return PopScope(
       canPop: false,
@@ -108,216 +113,222 @@ class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
         }
         return;
       },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-              child: Container(
-                color: Colors.black.withOpacity(0.2),
-              ),
-            ),
-          ),
-          title: isEditing
-              ? Text(
-                  "Editing Invoice",
-                  style: getTextStyle('largeBold', color: Colors.white),
-                )
-              : Text(
-                  "Invoice Details",
-                  style: getTextStyle('largeBold', color: Colors.white),
-                ),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              ref
-                  .read(showNavBarNotifierProvider.notifier)
-                  .showBottomNavBar(true);
-              Navigator.of(context).pop();
-            },
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(isEditing ? Icons.done : Icons.edit),
-              onPressed: () {
-                setState(() {
-                  isEditing = !isEditing;
-                  if (isEditing) {
-                    initializeControllers(invoice);
-                  }
-                });
-              },
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage("assets/images/bg4.jpg"),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(
-                color: Colors.black.withOpacity(0.3),
-              ),
-            ),
-            SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 120, 16, 16),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  SizedBox(
-                    height: 100,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          height: 10,
-                          width: 10,
-                          decoration: BoxDecoration(
-                            color: getInvoiceStatusColor(invoice.status),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Text(
-                          "ID: ${invoice.id}",
-                          style:
-                              getTextStyle('xlargeBold', color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  FrostedGlassBox(
-                    boxWidth: double.infinity,
-                    isCurved: true,
-                    boxChild: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: CustomerSection(
-                        isEditing: isEditing,
-                        invoice: invoice,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  FrostedGlassBox(
-                    boxWidth: double.infinity,
-                    isCurved: true,
-                    boxChild: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: DetailsSection(
-                        isEditing: isEditing,
-                        invoice: invoice,
-                        selectDate: selectDate,
-                        dueDate: dueDate,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(
-                    height: 120,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: ClipRRect(
-          borderRadius: const BorderRadius.only(
-            topLeft: Radius.circular(20),
-            topRight: Radius.circular(20),
-          ),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-            child: BottomAppBar(
-              color: Colors.black.withOpacity(0.4),
+      child: selectedInvoice.when(
+        data: (invoice) {
+          return Scaffold(
+            extendBodyBehindAppBar: true,
+            extendBody: true,
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.transparent,
               elevation: 0,
-              child: Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  child: isEditing
-                      ? ElevatedButton(
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
-                            showUpdateConfirmationDialog();
-                          },
-                          style: purpleButtonStyle,
-                          child: Text(
-                            "Update",
-                            style: getTextStyle('small', color: Colors.white),
-                          ),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              flexibleSpace: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.2),
+                  ),
+                ),
+              ),
+              title: isEditing
+                  ? Text(
+                      "Editing Invoice",
+                      style: getTextStyle('largeBold', color: Colors.white),
+                    )
+                  : Text(
+                      "Invoice Details",
+                      style: getTextStyle('largeBold', color: Colors.white),
+                    ),
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  ref
+                      .read(showNavBarNotifierProvider.notifier)
+                      .showBottomNavBar(true);
+                  Navigator.of(context).pop();
+                },
+              ),
+              actions: [
+                IconButton(
+                  icon: Icon(isEditing ? Icons.done : Icons.edit),
+                  onPressed: () {
+                    setState(() {
+                      isEditing = !isEditing;
+                      if (isEditing) {
+                        initializeControllers(invoice);
+                      }
+                    });
+                  },
+                ),
+              ],
+            ),
+            body: Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage("assets/images/bg4.jpg"),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.3),
+                  ),
+                ),
+                SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(16, 120, 16, 16),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        height: 100,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: invoice.invoiceBalance > 0
-                                    ? () {
-                                        context.pushNamed(
-                                            AppRouter.addPayment.name);
-                                      }
-                                    : () {
-                                        showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return AlertDialog(
-                                              title: const Text(
-                                                  "Payment Complete"),
-                                              content: const Text(
-                                                  "The payment for this invoice has already been completed."),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () {
-                                                    Navigator.of(context).pop();
-                                                  },
-                                                  child: const Text("OK"),
-                                                ),
-                                              ],
-                                            );
-                                          },
-                                        );
-                                      },
-                                style: invoice.invoiceBalance > 0
-                                    ? purpleButtonStyle
-                                    : greyButtonStyle,
-                                child: Text(
-                                  'Add Payment',
-                                  style: getTextStyle('small',
-                                      color: Colors.white),
-                                ),
+                            Container(
+                              height: 10,
+                              width: 10,
+                              decoration: BoxDecoration(
+                                color: getInvoiceStatusColor(invoice.status),
+                                shape: BoxShape.circle,
                               ),
                             ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: () {
-                                  context.pushNamed(AppRouter.payments.name);
-                                  ref
-                                      .read(paymentNotifierProvider.notifier)
-                                      .setSelectedPaymentList(invoice.payments);
-                                },
-                                style: purpleButtonStyle,
-                                child: Text(
-                                  'View Payment',
-                                  style: getTextStyle('small',
-                                      color: Colors.white),
-                                ),
-                              ),
+                            const SizedBox(width: 20),
+                            Text(
+                              "ID: ${invoice.id}",
+                              style: getTextStyle('largeBold',
+                                  color: Colors.white),
                             ),
                           ],
-                        )),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      FrostedGlassBox(
+                        boxWidth: double.infinity,
+                        isCurved: true,
+                        boxChild: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: CustomerSection(
+                            isEditing: isEditing,
+                            invoice: invoice,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      FrostedGlassBox(
+                        boxWidth: double.infinity,
+                        isCurved: true,
+                        boxChild: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: DetailsSection(
+                            isEditing: isEditing,
+                            invoice: invoice,
+                            selectDate: selectDate,
+                            dueDate: dueDate,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 120,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-          ),
-        ),
+            bottomNavigationBar: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                child: BottomAppBar(
+                  color: Colors.black.withOpacity(0.4),
+                  elevation: 0,
+                  child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      child: isEditing
+                          ? ElevatedButton(
+                              onPressed: () {
+                                FocusScope.of(context).unfocus();
+                                showUpdateConfirmationDialog();
+                              },
+                              style: purpleButtonStyle,
+                              child: Text(
+                                "Update",
+                                style:
+                                    getTextStyle('small', color: Colors.white),
+                              ),
+                            )
+                          : Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: invoice.invoiceBalance > 0
+                                        ? () {
+                                            context.pushNamed(
+                                                AppRouter.addPayment.name);
+                                          }
+                                        : () {
+                                            showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                return AlertDialog(
+                                                  title: const Text(
+                                                      "Payment Complete"),
+                                                  content: const Text(
+                                                      "The payment for this invoice has already been completed."),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                      child: const Text("OK"),
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                            );
+                                          },
+                                    style: invoice.invoiceBalance > 0
+                                        ? purpleButtonStyle
+                                        : greyButtonStyle,
+                                    child: Text(
+                                      'Add Payment',
+                                      style: getTextStyle('small',
+                                          color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: () {
+                                      context
+                                          .pushNamed(AppRouter.payments.name);
+                                    },
+                                    style: purpleButtonStyle,
+                                    child: Text(
+                                      'View Payment',
+                                      style: getTextStyle('small',
+                                          color: Colors.white),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            )),
+                ),
+              ),
+            ),
+          );
+        },
+        error: (err, stack) => Text('Error: $err'),
+        loading: () => const CircularProgressIndicator(),
       ),
     );
   }

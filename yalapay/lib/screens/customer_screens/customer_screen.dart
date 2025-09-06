@@ -91,93 +91,98 @@ class CustomerList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final customers = ref.watch(customerNotifierProvider);
-
-    return customers.isEmpty
-        ? const EmptyScreen()
-        : ListView.builder(
-            itemCount: customers.length,
-            itemBuilder: (context, index) {
-              final customer = customers[index];
-              return Card(
-                color: Colors.transparent,
-                child: Container(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Text(
-                              "Customer ID: ${customer.id}",
-                              style: getTextStyle("smallBold",
-                                  color: lightSecondary),
-                            ),
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              height: 70,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    width: 30,
-                                    height: 30,
-                                    decoration: const BoxDecoration(
-                                      color: lightSecondary,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.person_2_rounded,
-                                      color: Colors.white,
-                                      size: 24,
-                                    ),
+    return customers.when(
+      data: (customersList) {
+        return customersList.isEmpty
+            ? const EmptyScreen()
+            : ListView.builder(
+                itemCount: customersList.length,
+                itemBuilder: (context, index) {
+                  final customer = customersList[index];
+                  return Card(
+                    color: Colors.transparent,
+                    child: Container(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "Customer ID: ${customer.id}",
+                                  style: getTextStyle("smallBold",
+                                      color: lightSecondary),
+                                ),
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  height: 70,
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        width: 30,
+                                        height: 30,
+                                        decoration: const BoxDecoration(
+                                          color: lightSecondary,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.person_2_rounded,
+                                          color: Colors.white,
+                                          size: 24,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 20),
+                                      Expanded(
+                                        child: Text(
+                                          customer.companyName,
+                                          style: getTextStyle('mediumBold',
+                                              color: Colors.white),
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  const SizedBox(width: 20),
-                                  Expanded(
-                                    child: Text(
-                                      customer.companyName,
-                                      style: getTextStyle('mediumBold',
-                                          color: Colors.white),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                                const SizedBox(height: 5),
+                                Text(
+                                  'Contact: ${customer.contactDetails.firstName} ${customer.contactDetails.lastName}',
+                                  style: getTextStyle("smallLight",
+                                      color: Colors.grey),
+                                ),
+                                Text(
+                                  'Address: ${customer.address.city}, ${customer.address.country}',
+                                  style: getTextStyle("smallLight",
+                                      color: Colors.grey),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 5),
-                            Text(
-                              'Contact: ${customer.contactDetails.firstName} ${customer.contactDetails.lastName}',
-                              style: getTextStyle("smallLight",
-                                  color: Colors.grey),
-                            ),
-                            Text(
-                              'Address: ${customer.address.city}, ${customer.address.country}',
-                              style: getTextStyle("smallLight",
-                                  color: Colors.grey),
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton(
+                            onPressed: () {
+                              context.pushNamed(AppRouter.customerDetails.name,
+                                  pathParameters: {'customerId': customer.id});
+                            },
+                            icon: iconContainer(Icons.remove_red_eye),
+                          ),
+                          IconButton(
+                            onPressed: () {
+                              showDeleteDialog(context, ref, customer);
+                            },
+                            icon: iconContainer(Icons.delete),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 10),
-                      IconButton(
-                        onPressed: () {
-                          context.pushNamed(AppRouter.customerDetails.name,
-                              pathParameters: {'customerId': customer.id});
-                        },
-                        icon: iconContainer(Icons.remove_red_eye),
-                      ),
-                      IconButton(
-                        onPressed: () {
-                          showDeleteDialog(context, ref, customer);
-                        },
-                        icon: iconContainer(Icons.delete),
-                      ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               );
-            },
-          );
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
+    );
   }
 }
 

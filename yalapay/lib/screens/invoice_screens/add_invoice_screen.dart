@@ -32,7 +32,10 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     });
 
     final customers = ref.read(customerNotifierProvider);
-    filteredCustomers = List.from(customers);
+    customers.when(
+        data: (customersList) => filteredCustomers = List.from(customersList),
+        loading: () => const CircularProgressIndicator(),
+        error: (err, stack) => Text('Error: $err'));
   }
 
   @override
@@ -48,7 +51,11 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     companyText = null;
     setState(() {
       selectedDueDate = null;
-      filteredCustomers = ref.read(customerNotifierProvider);
+      ref.watch(customerNotifierProvider).when(
+            data: (customersList) => filteredCustomers = customersList,
+            error: (err, stack) => Text('Error: $err'),
+            loading: () => const CircularProgressIndicator(),
+          );
     });
   }
 
@@ -56,18 +63,24 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
       amountController.text.isNotEmpty && selectedDueDate != null;
 
   void filterCustomers(String query) {
-    final customers = ref.read(customerNotifierProvider);
-    setState(() {
-      if (query.isEmpty) {
-        filteredCustomers = List.from(customers);
-      } else {
-        filteredCustomers = customers
-            .where((customer) => customer.companyName
-                .toLowerCase()
-                .contains(query.toLowerCase()))
-            .toList();
-      }
-    });
+    final customers = ref.watch(customerNotifierProvider);
+    customers.when(
+      data: (customersList) {
+        setState(() {
+          if (query.isEmpty) {
+            filteredCustomers = List.from(customersList);
+          } else {
+            filteredCustomers = customersList
+                .where((customer) => customer.companyName
+                    .toLowerCase()
+                    .contains(query.toLowerCase()))
+                .toList();
+          }
+        });
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
+    );
   }
 
   @override
@@ -352,16 +365,21 @@ class _AddInvoiceScreenState extends ConsumerState<AddInvoiceScreen> {
     }
 
     final invoices = ref.watch(invoiceNotifierProvider);
-    final invoice = Invoice(
-      id: (int.parse(invoices.last.id) + 1).toString(),
-      customerId: custIdController.text,
-      customerName: companyText ?? '',
-      amount: double.parse(amountController.text),
-      invoiceDate: DateTime.now().toString().substring(0, 10),
-      dueDate: selectedDueDate!.toIso8601String().split('T').first,
+    invoices.when(
+      data: (invoices) {
+        final invoice = Invoice(
+          id: '-1',
+          customerId: custIdController.text,
+          customerName: companyText ?? '',
+          amount: double.parse(amountController.text),
+          invoiceDate: DateTime.now().toString().substring(0, 10),
+          dueDate: selectedDueDate!.toIso8601String().split('T').first,
+        );
+        ref.read(invoiceNotifierProvider.notifier).addInvoice(invoice);
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
     );
-
-    ref.read(invoiceNotifierProvider.notifier).addInvoice(invoice);
     clearAll();
     ScaffoldMessenger.of(context)
         .showSnackBar(const SnackBar(content: Text('Invoice Added.')));

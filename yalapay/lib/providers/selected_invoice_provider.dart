@@ -1,11 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/model/payment.dart';
+import 'package:yalapay/providers/cheque_provider.dart';
+import 'package:yalapay/providers/payment_provider.dart';
+import 'package:yalapay/providers/repo_provider.dart';
+import 'package:yalapay/repositories/yalapay_repo.dart';
 
-class SelectedInvoiceNotifier extends Notifier<Invoice> {
+class SelectedInvoiceNotifier extends AsyncNotifier<Invoice> {
+  late final YalapayRepo _repo;
   @override
-  Invoice build() {
+  Future<Invoice> build() async {
+    _repo = await ref.watch(repoProvider.future);
     return Invoice(
         id: '',
         customerId: '',
@@ -15,32 +20,23 @@ class SelectedInvoiceNotifier extends Notifier<Invoice> {
         dueDate: '');
   }
 
-  void setInvoice(Invoice invoice) => state = invoice;
-
-  void setDummy() {
-    state = Invoice(
-        id: '',
-        customerId: '',
-        customerName: '',
-        amount: 0,
-        invoiceDate: '',
-        dueDate: '');
-  }
-
-  void resetInvoice(Invoice invoice) {
-    setDummy();
-    setInvoice(invoice);
-  }
-
-  void deletePayment(String id, List<Cheque> cheques) {
-    state.removePayment(id, cheques);
-  }
-
-  void addNewPayment(Payment payment, List<Cheque> cheques) {
-    state.addPayment(payment, cheques);
+  void setInvoice(Invoice invoice) async {
+    _repo.observeInvoiceById(invoice.id).listen((selectedInvoice) {
+      List<Payment> invoicePayments = ref
+          .read(paymentNotifierProvider.notifier)
+          .allPayments
+          .where((payment) => payment.invoiceNo == selectedInvoice!.id)
+          .toList();
+      selectedInvoice?.addAllPayments(invoicePayments);
+      selectedInvoice?.updateInvoiceBalance(
+          ref.read(chequeNotifierProvider.notifier).allCheques);
+      selectedInvoice?.updateStatus();
+      state = AsyncData(selectedInvoice!);
+      invoice = selectedInvoice;
+    });
   }
 }
 
 final selectedInvoiceNotifierProvider =
-    NotifierProvider<SelectedInvoiceNotifier, Invoice>(
+    AsyncNotifierProvider<SelectedInvoiceNotifier, Invoice>(
         () => SelectedInvoiceNotifier());

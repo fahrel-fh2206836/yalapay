@@ -1,118 +1,126 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/cheque.dart';
-import 'package:yalapay/repositories/cheque_repository.dart';
+import 'package:yalapay/providers/repo_provider.dart';
+import 'package:yalapay/repositories/yalapay_repo.dart';
 
-class ChequeNotifier extends Notifier<List<Cheque>> {
-  final ChequeRepository _repo = ChequeRepository();
-  List<Cheque> _allCheques = [];
+class ChequeNotifier extends AsyncNotifier<List<Cheque>> {
+  late final YalapayRepo _repo;
+  List<Cheque> allCheques = [];
+
   @override
-  List<Cheque> build() {
+  Future<List<Cheque>> build() async {
+    _repo = await ref.watch(repoProvider.future);
     initializeCheques();
     return [];
   }
 
-  void initializeCheques() async {
-    List<Cheque> cheques = await _repo.getCheques();
-    _allCheques = cheques;
-    state = cheques;
+  Future<void> initializeCheques() async {
+    _repo.observeCheque().listen((cheque) {
+      state = AsyncData(cheque);
+      allCheques = List.from(cheque);
+    });
   }
 
-  void showAll() {
-    state = _allCheques;
+  void showAll() => initializeCheques();
+
+  Future<bool> checkIdDuplicate(int chequeNo) async =>
+      await _repo.checkChequeIfDuplicate(chequeNo);
+
+  Future<void> updateChequeDue(int chequeNo, String newDueDate) async {
+    Cheque? cheque = await _repo.getCheque(chequeNo);
+    cheque!.dueDate = newDueDate;
+    _repo.updateCheque(cheque);
   }
 
-  bool checkIdDuplicate(int chequeNo) {
-    return _repo.cheques
-        .where((cheque) => cheque.chequeNo == chequeNo)
-        .toList()
-        .isNotEmpty;
+  Future<void> updateChequeImage(int chequeNo, String newImageUri) async {
+    Cheque? cheque = await _repo.getCheque(chequeNo);
+    cheque!.chequeImageUri = newImageUri;
+    _repo.updateCheque(cheque);
   }
 
-  void updateChequeDue(int chequeNo, String newDueDate) {
-    Cheque? cheque = state.firstWhere((c) => c.chequeNo == chequeNo);
-    cheque.dueDate = newDueDate;
-  }
+  void addCheque(Cheque cheque) => _repo.addCheque(cheque);
 
-  void updateChequeImage(int chequeNo, String newImageUri) {
-    Cheque? cheque = state.firstWhere((c) => c.chequeNo == chequeNo);
-    cheque.chequeImageUri = newImageUri;
-  }
+  void removeCheque(int chequeNo) => _repo.removeCheque(chequeNo);
 
-  void addCheque(Cheque cheque) {
-    state = [...state, cheque];
-    _allCheques = [..._allCheques, cheque];
-    _repo.cheques = state;
-  }
+  Future<List<Cheque>> getChequesByNo(List<int> chequeNoList) =>
+      _repo.getChequesByNo(chequeNoList);
 
-  void removeCheque(int chequeNo) {
-    state.removeWhere((cheque) => cheque.chequeNo == chequeNo);
-    _allCheques.removeWhere((cheque) => cheque.chequeNo == chequeNo);
-    _repo.cheques = state;
-  }
+  Future<Cheque?> getCheque(int chequeNo) async =>
+      await _repo.getCheque(chequeNo);
 
-  void setByStatus(String status) {
-    state = state.where((cheque) => cheque.status == status).toList();
-  }
-
-  List<Cheque> getChequesByNo(List<int> chequeNoList) {
-    List<Cheque> chequeList = [];
-    for (var chequeNo in chequeNoList) {
-      chequeList.add(state.firstWhere((c) => c.chequeNo == chequeNo));
-    }
-    return chequeList;
-  }
-
-  Cheque getCheque(int chequeNo) {
-    return state.firstWhere((cheque) => cheque.chequeNo == chequeNo);
-  }
-
-  void updateNewlyDepositedCheques(
-      {required int chequeNo, required String status, required String date}) {
-    Cheque cheque = getCheque(chequeNo);
-    cheque.status = status;
+  Future<void> updateNewlyDepositedCheques(
+      {required int chequeNo,
+      required String status,
+      required String date}) async {
+    Cheque? cheque = await getCheque(chequeNo);
+    cheque!.status = status;
     cheque.depositDate = date;
+    await _repo.updateCheque(cheque);
   }
 
-  void updateChequeDate({
+  Future<void> updateChequeDate({
     required int chequeNo,
     required DateType dateType,
     required String date,
-  }) {
-    Cheque cheque = getCheque(chequeNo);
+  }) async {
+    Cheque? cheque = await getCheque(chequeNo);
     if (dateType == DateType.cashedDate) {
-      cheque.cashedDate = date;
+      cheque!.cashedDate = date;
     } else if (dateType == DateType.depositDate) {
-      cheque.depositDate = date;
+      cheque!.depositDate = date;
     } else {
-      cheque.returnedDate = date;
+      cheque!.returnedDate = date;
     }
+    await _repo.updateCheque(cheque);
   }
 
-  void updateChequeListStatus(
-      {required List<int> chequeNoList, required String status}) {
+  Future<void> updateChequeListStatus(
+      {required List<int> chequeNoList, required String status}) async {
     for (var chequeNo in chequeNoList) {
-      state.firstWhere((c) => c.chequeNo == chequeNo).status = status;
+      Cheque? cheque = await getCheque(chequeNo);
+      cheque!.status = status;
+      await _repo.updateCheque(cheque);
     }
   }
 
-  void updateChequeListDate(
+  Future<void> updateChequeListDate(
       {required List<int> chequeNoList,
       required String date,
-      required DateType type}) {
+      required DateType type}) async {
     for (var chequeNo in chequeNoList) {
-      updateChequeDate(chequeNo: chequeNo, dateType: type, date: date);
+      await updateChequeDate(chequeNo: chequeNo, dateType: type, date: date);
     }
   }
 
   void setReturnInfo(
-      {required List<int> chequeNoList, required String reason}) {
+      {required List<int> chequeNoList, required String reason}) async {
     for (var chequeNo in chequeNoList) {
-      Cheque cheque = getCheque(chequeNo);
-      cheque.returnReason = reason;
+      Cheque? cheque = await getCheque(chequeNo);
+      cheque!.returnReason = reason;
+      await _repo.updateCheque(cheque);
     }
   }
+
+  void updateCheque(Cheque cheque) => _repo.updateCheque(cheque);
+
+  Future<double> getChequeTotalByStatus(String status) =>
+      _repo.getChequeTotalByStatus(status);
 }
 
 final chequeNotifierProvider =
-    NotifierProvider<ChequeNotifier, List<Cheque>>(() => ChequeNotifier());
+    AsyncNotifierProvider<ChequeNotifier, List<Cheque>>(() => ChequeNotifier());
+
+//Cheque status provider
+final chequeStatusProvider = FutureProvider<List<String>>((ref) async {
+  final repository = await ref.watch(yalaPayStaticRepoProvider.future);
+  final chequeStatuses = await repository.getChequeStatus();
+  return chequeStatuses.map((status) => status.chequeStatus).toList();
+});
+
+//Return reasons provider
+final returnReasonProvider = FutureProvider<List<String>>((ref) async {
+  final repository = await ref.watch(yalaPayStaticRepoProvider.future);
+  final returnReasons = await repository.getReturnReason();
+  return returnReasons.map((reason) => reason.returnReason).toList();
+});

@@ -1,62 +1,71 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/model/cheque_deposit.dart';
-import 'package:yalapay/repositories/cheque_deposit_repo.dart';
+import 'package:yalapay/providers/repo_provider.dart';
+import 'package:yalapay/repositories/yalapay_repo.dart';
 
-class ChequeDepositNotifier extends Notifier<List<ChequeDeposit>> {
-  final ChequeDepositRepo _repo = ChequeDepositRepo();
+class ChequeDepositNotifier extends AsyncNotifier<List<ChequeDeposit>> {
+  late final YalapayRepo _repo;
   @override
-  List<ChequeDeposit> build() {
+  Future<List<ChequeDeposit>> build() async {
+    _repo = await ref.watch(repoProvider.future);
     initializeChequeDeposit();
     return [];
   }
 
-  void initializeChequeDeposit() async {
-    List<ChequeDeposit> chequeDeposits = await _repo.getChequesDeposits();
-    state = chequeDeposits;
+  Future<void> initializeChequeDeposit() async {
+    _repo.observeChequeDeposits().listen((deposits) {
+      state = AsyncData(deposits);
+    });
   }
 
-  List<int> getChequesList(String chequeDepositId) {
-    return state.firstWhere((cd) => cd.id == chequeDepositId).chequeNos;
+  Future<List<int>> getChequesNoList(String chequeDepositId) async {
+    ChequeDeposit? deposit = await getChequesDeposit(chequeDepositId);
+    return deposit!.chequeNos;
   }
 
-  void removeCheque(String id, int chequeNo) {
+  void removeCheque(String id, int chequeNo) async {
+    ChequeDeposit? deposit = await getChequesDeposit(id);
     //Removes the chequeNo from the list
-    state.firstWhere((cd) => cd.id == id).chequeNos.remove(chequeNo);
+    deposit!.chequeNos.remove(chequeNo);
     //If chequeDeposit has no more cheques in its list, delete the chequeDeposit
-    state.firstWhere((cd) => cd.id == id).chequeNos.isEmpty
-        ? state.removeWhere((cd) => cd.id == id)
-        : '';
-    state = [...state];
+    deposit.chequeNos.isEmpty
+        ? _repo.deleteChequeDeposit(deposit)
+        : _repo.updateChequeDeposit(deposit);
   }
 
-  void addChequeDeposit(ChequeDeposit chequeDeposit) {
-    state = [...state, chequeDeposit];
-    _repo.chequesDeposits = state;
+  void addChequeDeposit(ChequeDeposit chequeDeposit) =>
+      _repo.addChequeDeposit(chequeDeposit);
+
+  Future<void> removeChequeDeposit(String chequeDepositId) async {
+    ChequeDeposit? deposit = await getChequesDeposit(chequeDepositId);
+    _repo.deleteChequeDeposit(deposit!);
   }
 
-  void removeChequeDeposit(String chequeDepositId) {
-    state.removeWhere((cd) => cd.id == chequeDepositId);
-    _repo.chequesDeposits = state;
-  }
+  Future<ChequeDeposit?> getChequesDeposit(String id) =>
+      _repo.getChequeDepositById(id);
 
-  ChequeDeposit getChequesDeposit(String id) {
-    return state.firstWhere((cd) => cd.id == id);
-  }
-
-  void updateStatus(String id, String status) {
-    ChequeDeposit cd = state.firstWhere((cd) => cd.id == id);
-    cd.status = status;
-    state.firstWhere((cd) => cd.id == id).cashedDate =
+  void updateStatus(String id, String status) async {
+    ChequeDeposit? deposit = await getChequesDeposit(id);
+    deposit?.status = status;
+    deposit?.cashedDate =
         '${DateTime.now().day.toString()}-${DateTime.now().month.toString()}-${DateTime.now().year.toString()}';
     //By default set the cash date to current date
-    _repo.chequesDeposits = state;
+    _repo.updateChequeDeposit(deposit!);
   }
 
-  String getStatus(String id) {
-    return state.firstWhere((cd) => cd.id == id).status;
+  Future<String> getStatus(String id) async {
+    ChequeDeposit? deposit = await getChequesDeposit(id);
+    return deposit!.status;
   }
 }
 
 final chequeDepositNotifierProvider =
-    NotifierProvider<ChequeDepositNotifier, List<ChequeDeposit>>(
+    AsyncNotifierProvider<ChequeDepositNotifier, List<ChequeDeposit>>(
         () => ChequeDepositNotifier());
+
+//Deposit stauts provider
+final depositStatusProvider = FutureProvider<List<String>>((ref) async {
+  final repository = await ref.watch(yalaPayStaticRepoProvider.future);
+  final depositStatuses = await repository.getDepositStatus();
+  return depositStatuses.map((status) => status.depositStatus).toList();
+});

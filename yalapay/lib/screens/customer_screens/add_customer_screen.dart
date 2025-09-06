@@ -108,9 +108,9 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
                     const SizedBox(height: 50),
                     buildCompanyInfoSection(),
                     const SizedBox(height: 20),
-                    buildAddressSection(),
-                    const SizedBox(height: 20),
                     buildContactDetailsSection(),
+                    const SizedBox(height: 20),
+                    buildAddressSection(),
                     const SizedBox(height: 110),
                   ],
                 ),
@@ -282,9 +282,11 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
       return;
     }
 
-    bool customerExists = ref
+    bool customerExists = false;
+    ref
         .read(customerNotifierProvider.notifier)
-        .isCustomerExistByName(companyController.text);
+        .isCustomerExistByName(companyController.text)
+        .then((exist) => customerExists = exist);
 
     if (!customerExists) {
       Address address = Address(
@@ -299,8 +301,7 @@ class _AddCustomerScreenState extends ConsumerState<AddCustomerScreen> {
         mobile: mobileController.text,
       );
       Customer customer = Customer(
-        id: (int.parse(ref.watch(customerNotifierProvider).last.id) + 1)
-            .toString(),
+        id: '-1', //Temporary Id later firebase will assign the proper ID.
         companyName: companyController.text,
         address: address,
         contactDetails: contact,

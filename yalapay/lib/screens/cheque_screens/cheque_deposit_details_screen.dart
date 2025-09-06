@@ -38,98 +38,117 @@ class ChequeDepositDetailsScreenState
 
   @override
   Widget build(BuildContext context) {
-    final chequesNoList = ref
-        .read(chequeDepositNotifierProvider.notifier)
-        .getChequesList(widget.chequeDepositId);
-    final chequesList =
-        ref.read(chequeNotifierProvider.notifier).getChequesByNo(chequesNoList);
-    final totalAmount = chequesList
-        .map((c) => c.amount)
-        .reduce((value, element) => value + element);
+    return FutureBuilder(
+        future: ref
+            .read(chequeDepositNotifierProvider.notifier)
+            .getChequesNoList(widget.chequeDepositId),
+        builder: (context, snapshot1) {
+          if (snapshot1.data == null) {
+            return const CircularProgressIndicator();
+          }
+          return FutureBuilder(
+              future: ref
+                  .read(chequeNotifierProvider.notifier)
+                  .getChequesByNo(snapshot1.data!),
+              builder: (context, snapshot2) {
+                if (snapshot2.data == null) {
+                  return const CircularProgressIndicator();
+                }
+                final totalAmount = snapshot2.data!
+                    .map((c) => c.amount)
+                    .reduce((value, element) => value + element);
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) async {
-        if (!didPop) {
-          ref.read(showNavBarNotifierProvider.notifier).showBottomNavBar(false);
-          Navigator.of(context).pop(result);
-        }
-        return;
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-              child: Container(
-                color: Colors.black.withOpacity(0.2),
-              ),
-            ),
-          ),
-          title: Row(
-            children: [
-              Text("Deposit Details",
-                  style: getTextStyle('largeBold', color: Colors.white)),
-            ],
-          ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              ref
-                  .read(showNavBarNotifierProvider.notifier)
-                  .showBottomNavBar(false);
-              Navigator.of(context).pop();
-            },
-          ),
-          actions: [
-            IconButton(
-              icon: Icon(showInfo ? Icons.visibility : Icons.visibility_off),
-              onPressed: toggleInfoVisibility,
-            ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage("assets/images/bg4.jpg"),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(
-                color: Colors.black.withOpacity(0.3),
-              ),
-            ),
-            Padding(
-              padding: showInfo
-                  ? const EdgeInsets.fromLTRB(8, 205, 8, 0)
-                  : const EdgeInsets.fromLTRB(8, 8, 8, 0),
-              child: ListView.builder(
-                itemCount: chequesList.length,
-                itemBuilder: (context, index) {
-                  return buildChequeCard(chequesList[index]);
-                },
-              ),
-            ),
-            if (showInfo)
-              Positioned(
-                top: 120,
-                left: 0,
-                right: 0,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
-                  child: buildTotalInfo(totalAmount, chequesList.length),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
+                return PopScope(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, result) async {
+                    if (!didPop) {
+                      ref
+                          .read(showNavBarNotifierProvider.notifier)
+                          .showBottomNavBar(false);
+                      Navigator.of(context).pop(result);
+                    }
+                    return;
+                  },
+                  child: Scaffold(
+                    extendBodyBehindAppBar: true,
+                    appBar: AppBar(
+                      automaticallyImplyLeading: false,
+                      backgroundColor: Colors.transparent,
+                      elevation: 0,
+                      flexibleSpace: ClipRect(
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                          child: Container(
+                            color: Colors.black.withOpacity(0.2),
+                          ),
+                        ),
+                      ),
+                      title: Row(
+                        children: [
+                          Text("Deposit Details",
+                              style: getTextStyle('largeBold',
+                                  color: Colors.white)),
+                        ],
+                      ),
+                      leading: IconButton(
+                        icon: const Icon(Icons.arrow_back),
+                        onPressed: () {
+                          ref
+                              .read(showNavBarNotifierProvider.notifier)
+                              .showBottomNavBar(false);
+                          Navigator.of(context).pop();
+                        },
+                      ),
+                      actions: [
+                        IconButton(
+                          icon: Icon(showInfo
+                              ? Icons.visibility
+                              : Icons.visibility_off),
+                          onPressed: toggleInfoVisibility,
+                        ),
+                      ],
+                    ),
+                    body: Stack(
+                      children: [
+                        Container(
+                          decoration: const BoxDecoration(
+                            image: DecorationImage(
+                              image: AssetImage("assets/images/bg4.jpg"),
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          child: Container(
+                            color: Colors.black.withOpacity(0.3),
+                          ),
+                        ),
+                        Padding(
+                          padding: showInfo
+                              ? const EdgeInsets.fromLTRB(8, 205, 8, 0)
+                              : const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                          child: ListView.builder(
+                            itemCount: snapshot2.data!.length,
+                            itemBuilder: (context, index) {
+                              return buildChequeCard(snapshot2.data![index]);
+                            },
+                          ),
+                        ),
+                        if (showInfo)
+                          Positioned(
+                            top: 120,
+                            left: 0,
+                            right: 0,
+                            child: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 0, 8, 0),
+                              child: buildTotalInfo(
+                                  totalAmount, snapshot2.data!.length),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                );
+              });
+        });
   }
 
   Widget buildChequeCard(dynamic cheque) {
@@ -176,13 +195,17 @@ class ChequeDepositDetailsScreenState
                       ? Text('Cashed Date: ${cheque.cashedDate}',
                           style: getTextStyle('smallLight', color: Colors.grey))
                       : Container(),
-                  cheque.status == "Cashed with Returns"
+                  cheque.status == "Returned"
                       ? Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('Returned Date: ${cheque.returnedDate}',
                                 style: getTextStyle('smallLight',
                                     color: Colors.grey)),
-                            Text('Return Reason: ${cheque.returnReason}',
+                            Text('Return Reason:',
+                                style: getTextStyle('smallLight',
+                                    color: Colors.grey)),
+                            Text(cheque.returnReason,
                                 style: getTextStyle('smallLight',
                                     color: Colors.grey)),
                           ],

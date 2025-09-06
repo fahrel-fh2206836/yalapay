@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 import 'package:yalapay/screens/cheque_screens/cheque_deposit_details_screen.dart';
+import 'package:yalapay/screens/cheque_screens/cheque_deposit_update_screen.dart';
 import 'package:yalapay/screens/cheque_screens/cheque_deposits_screen.dart';
+import 'package:yalapay/screens/common_screens/register_screen.dart';
 import 'package:yalapay/screens/payment_screens/add_payment_screen.dart';
 import 'package:yalapay/screens/payment_screens/payment_details_screen.dart';
 import 'package:yalapay/screens/payment_screens/payments_screen.dart';
@@ -18,6 +20,7 @@ import 'package:yalapay/screens/common_screens/shell_screen.dart';
 
 class AppRouter {
   static const login = (name: 'login', path: '/');
+  static const register = (name: 'register', path: '/register');
   static const dashboard = (name: 'dashboard', path: '/dashboard');
   static const customer = (name: "customer", path: "/customer");
   static const report = (name: "report", path: "/report");
@@ -44,6 +47,11 @@ class AppRouter {
     name: 'chequeDepositDetails',
     path: '/cheque/chequeDeposits/chequeDepositDetails:chequeDepositId'
   );
+  static const chequeDepositUpdate = (
+    name: 'chequeDepositUpdate',
+    path: '/cheque/chequeDeposits/chequeDepositUpdate:chequeDepositId'
+  );
+
   static final router = GoRouter(
     initialLocation: login.path,
     routes: [
@@ -51,6 +59,11 @@ class AppRouter {
           path: login.path,
           name: login.name,
           builder: (context, state) => const LoginScreen()),
+      GoRoute(
+        path: register.path,
+        name: register.name,
+        builder: (context, state) => const RegisterScreen(),
+      ),
       ShellRoute(
         builder: (context, state, child) => ShellScreen(child: child),
         routes: [
@@ -125,20 +138,32 @@ class AppRouter {
             builder: (context, state) => const ChequeScreen(),
             routes: [
               GoRoute(
-                  path: chequeDeposits.path,
-                  name: chequeDeposits.name,
-                  builder: (context, state) => const ChequeDepositsScreen(),
-                  routes: [
-                    GoRoute(
-                        path: chequeDepositDetails.path,
-                        name: chequeDepositDetails.name,
-                        builder: (context, state) {
-                          final chequeDepositId =
-                              state.pathParameters['chequeDepositId'];
-                          return ChequeDepositDetailsScreen(
-                              chequeDepositId: chequeDepositId!);
-                        })
-                  ]),
+                path: chequeDeposits.path,
+                name: chequeDeposits.name,
+                builder: (context, state) => const ChequeDepositsScreen(),
+                routes: [
+                  GoRoute(
+                    path: chequeDepositDetails.path,
+                    name: chequeDepositDetails.name,
+                    builder: (context, state) {
+                      final chequeDepositId =
+                          state.pathParameters['chequeDepositId'];
+                      return ChequeDepositDetailsScreen(
+                          chequeDepositId: chequeDepositId!);
+                    },
+                  ),
+                  GoRoute(
+                    path: chequeDepositUpdate.path,
+                    name: chequeDepositUpdate.name,
+                    builder: (context, state) {
+                      final chequeDepositId =
+                          state.pathParameters['chequeDepositId'];
+                      return ChequeDepositUpdateScreen(
+                          chequeDepositId: chequeDepositId!);
+                    },
+                  ),
+                ],
+              ),
             ],
           ),
           GoRoute(

@@ -1,12 +1,18 @@
+import 'package:firebase_auth/firebase_auth.dart' hide User;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/user.dart';
+import 'package:yalapay/providers/cheque_provider.dart';
+import 'package:yalapay/providers/customer_provider.dart';
+import 'package:yalapay/providers/invoice_provider.dart';
 import 'package:yalapay/providers/logged_in_user_provider.dart';
+import 'package:yalapay/providers/selected_invoice_provider.dart';
 import 'package:yalapay/providers/show_nav_bar_provider.dart';
-import 'package:yalapay/providers/user_provider.dart';
 import 'package:yalapay/routes/app_router.dart';
+import 'package:yalapay/services/auth_service.dart';
 import 'package:yalapay/styling/frosted_glass.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -27,7 +33,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     super.initState();
     final user = ref.read(loggedInUserNotifierProvider);
     txtEmailController = TextEditingController(text: user.email);
-    txtPasswordController = TextEditingController(text: user.password);
+    txtPasswordController = TextEditingController();
     isRememberMeChecked =
         ref.read(loggedInUserNotifierProvider.notifier).isRememberMeChecked;
   }
@@ -41,7 +47,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(userNotifierProvider);
+    ref.watch(customerNotifierProvider);
+    ref.watch(invoiceNotifierProvider);
+    ref.watch(selectedInvoiceNotifierProvider);
+    ref.watch(chequeNotifierProvider);
     return Scaffold(
       resizeToAvoidBottomInset: false,
       body: Stack(
@@ -54,7 +63,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           Padding(
             padding: EdgeInsets.only(
-              top: screenHeight(context) * 0.08,
+              top: screenHeight(context) * 0.04,
             ),
             child: Column(
               children: [
@@ -101,23 +110,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 30.0),
             child: Text(
-              "Enter your login information",
-              style: getTextStyle('medium', color: Colors.grey),
+              "Let's sign you in.",
+              style: getTextStyle('largeBold', color: Colors.white),
             ),
           ),
-          const SizedBox(height: 12),
           EmailTextField(controller: txtEmailController),
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
           PasswordTextField(
             controller: txtPasswordController,
             isVisible: notVisible,
+            hintText: "Password",
+            prefixIcon: const Icon(Icons.lock_outlined, color: Colors.grey),
             toggleVisibility: () {
               setState(() {
                 notVisible = !notVisible;
               });
             },
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 20),
           RememberMeCheckbox(
             isChecked: isRememberMeChecked,
             onChanged: (value) {
@@ -128,35 +138,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           ),
           const SizedBox(height: 30),
           LoginButton(onLoginPressed: () => handleLogin(context)),
+          const SizedBox(height: 20),
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: "Don't have an account? ",
+                  style: getTextStyle('small', color: Colors.grey),
+                ),
+                TextSpan(
+                  text: "Register",
+                  style: getTextStyle('small', color: lightSecondary),
+                  recognizer: TapGestureRecognizer()
+                    ..onTap = () {
+                      context.pushNamed('register');
+                    },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
         ],
       ),
     );
   }
 
-  void handleLogin(BuildContext context) {
+  Future<void> handleLogin(BuildContext context) async {
     if (txtEmailController.text.isEmpty || txtPasswordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(fillAllFormsSnackBar);
       return;
     }
 
-    final userNotifier = ref.read(userNotifierProvider.notifier);
-    bool verified = userNotifier.verifyUser(
-      txtEmailController.text,
-      txtPasswordController.text,
-    );
+    try {
+      await AuthService().signin(
+        email: txtEmailController.text,
+        password: txtPasswordController.text,
+      );
 
-    if (verified) {
-      User user = userNotifier.getUser(txtEmailController.text);
-      ref.read(loggedInUserNotifierProvider.notifier).setUser(
-            user,
-            rememberMe: isRememberMeChecked,
-          );
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        throw Exception("Login failed: Invalid user or credentials.");
+      } else {
+        final user = User(
+          email: firebaseUser.email ?? '',
+          firstName: firebaseUser.displayName?.split(' ').first ?? '',
+          lastName: firebaseUser.displayName?.split(' ').last ?? '',
+          password: '', // Avoid storing the password
+        );
 
-      context.pushReplacementNamed(AppRouter.dashboard.name);
-      ref.read(showNavBarNotifierProvider.notifier).showBottomNavBar(true);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(loginFailSnackBar);
+        ref.read(loggedInUserNotifierProvider.notifier).setUser(
+              user,
+              rememberMe: isRememberMeChecked,
+            );
 
+        context.pushReplacementNamed(AppRouter.dashboard.name);
+        ref.read(showNavBarNotifierProvider.notifier).showBottomNavBar(true);
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+          "Login failed. Incorrect details were entered.",
+          style: getTextStyle('small', color: Colors.white),
+        ),
+        backgroundColor: lightSecondary,
+      ));
       if (!isRememberMeChecked) {
         txtEmailController.clear();
         txtPasswordController.clear();
@@ -186,12 +231,16 @@ class PasswordTextField extends StatelessWidget {
   final TextEditingController controller;
   final bool isVisible;
   final VoidCallback toggleVisibility;
+  final String hintText;
+  final Icon prefixIcon;
 
   const PasswordTextField({
     super.key,
     required this.controller,
     required this.isVisible,
     required this.toggleVisibility,
+    required this.hintText,
+    required this.prefixIcon,
   });
 
   @override
@@ -199,8 +248,8 @@ class PasswordTextField extends StatelessWidget {
     return FrostedGlassTextField(
       controller: controller,
       obscureText: isVisible,
-      hintText: "Password",
-      prefixIcon: const Icon(Icons.lock_outlined, color: Colors.grey),
+      hintText: hintText,
+      prefixIcon: prefixIcon,
       suffixIcon: IconButton(
         onPressed: toggleVisibility,
         icon: Icon(
@@ -233,7 +282,7 @@ class RememberMeCheckbox extends StatelessWidget {
         ),
         Text(
           "Remember me",
-          style: getTextStyle('medium', color: Colors.white),
+          style: getTextStyle('small', color: Colors.white),
         ),
       ],
     );
@@ -249,19 +298,19 @@ class LoginButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 60,
+      height: 44,
       child: ElevatedButton(
         onPressed: onLoginPressed,
         style: ElevatedButton.styleFrom(
-          backgroundColor: lightPrimary,
+          backgroundColor: lightSecondary,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(10),
           ),
           elevation: 5,
         ),
         child: Text(
-          "LOGIN",
-          style: getTextStyle('largeBold', color: Colors.white),
+          "Login",
+          style: getTextStyle('mediumBold', color: Colors.white),
         ),
       ),
     );
@@ -271,7 +320,7 @@ class LoginButton extends StatelessWidget {
 final SnackBar loginFailSnackBar = SnackBar(
   content: Text(
     'Incorrect credentials! Please try again...',
-    style: getTextStyle('medium', color: Colors.white),
+    style: getTextStyle('small', color: Colors.white),
   ),
   backgroundColor: lightSecondary,
 );
@@ -279,7 +328,7 @@ final SnackBar loginFailSnackBar = SnackBar(
 final SnackBar fillAllFormsSnackBar = SnackBar(
   content: Text(
     'Please fill all forms.',
-    style: getTextStyle('medium', color: Colors.white),
+    style: getTextStyle('small', color: Colors.white),
   ),
   backgroundColor: lightSecondary,
 );

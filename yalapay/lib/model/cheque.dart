@@ -40,14 +40,35 @@ class Cheque {
         chequeImageUri: map['chequeImageUri']);
   }
 
+  factory Cheque.fromJson2(Map<String, dynamic> map) {
+    return Cheque(
+      chequeNo: map['chequeNo'],
+      amount: map['amount'],
+      drawer: map['drawer'],
+      bankName: map['bankName'],
+      status: map['status'],
+      receivedDate: map['receivedDate'],
+      dueDate: map['dueDate'],
+      chequeImageUri: map['chequeImageUri'],
+      depositDate: map['depositDate'],
+      cashedDate: map['cashedDate'],
+      returnedDate: map['returnedDate'],
+      returnReason: map['returnReason'],
+    );
+  }
+
   Map<String, dynamic> toJson() => {
         'chequeNo': chequeNo,
         'amount': amount,
         'drawer': drawer,
         'bankName': bankName,
         'status': status,
-        'receiveDate': receivedDate,
+        'receivedDate': receivedDate,
         'dueDate': dueDate,
-        'chequeImageUri': chequeImageUri
+        'chequeImageUri': chequeImageUri,
+        'depositDate': depositDate,
+        'cashedDate': cashedDate,
+        'returnedDate': returnedDate,
+        'returnReason': returnReason,
       };
 }

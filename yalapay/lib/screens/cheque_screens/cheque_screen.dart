@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/model/cheque_deposit.dart';
-import 'package:yalapay/providers/bank_account_provider.dart';
+import 'package:yalapay/providers/banks_provider.dart';
 import 'package:yalapay/providers/cheque_deposit_provider.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
 import 'package:yalapay/providers/deleted_cheques_provider.dart';
@@ -67,102 +67,115 @@ class _ChequeScreenState extends ConsumerState<ChequeScreen> {
   @override
   Widget build(BuildContext context) {
     final accounts = ref.watch(bankAccountMapProvider);
-    final chequesAwaiting = ref.watch(chequeNotifierProvider);
+    final cheques = ref.watch(chequeNotifierProvider);
     var chequeDeposits = ref.watch(chequeDepositNotifierProvider);
-
-    return BackgroundGradient(
-      colors: const [darkSecondary, darkPrimary],
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: buildHeader(),
-        body: Padding(
-          padding: const EdgeInsets.all(10.0),
-          child: SafeArea(
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: accounts.when(
-                    data: (accountList) {
-                      final options = ["Accounts"] +
-                          accountList
-                              .map((account) =>
-                                  "${account['accountNo']} : ${account['bank']}")
-                              .toList();
-
-                      return FilterDropdown(
-                        selectedFilter: selectedAccount ?? options.first,
-                        options: options,
-                        onSelected: (value) {
-                          setState(() {
-                            selectedAccount =
-                                value != "Accounts" ? value : null;
-                          });
-                        },
-                      );
-                    },
-                    error: (err, stack) => Text('Error: $err'),
-                    loading: () => const CircularProgressIndicator(),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                SelectAllRow(
-                  selectAll: selectAll,
-                  toggleSelectAll: (value) => setState(() {
-                    selectAll = value;
-                    if (selectAll) {
-                      selectedCheques = [...chequesAwaiting];
-                    } else {
-                      selectedCheques.clear();
-                    }
-                  }),
-                ),
-                Expanded(
-                  child: chequesAwaiting.isEmpty
-                      ? const EmptyScreen()
-                      : AwaitingChequesList(
-                          cheques: chequesAwaiting,
-                          selectedCheques: selectedCheques,
-                          onSelectCheque: (cheque) => setState(() {
-                            if (isChequeInSelected(cheque)) {
-                              selectedCheques.remove(cheque);
-                            } else {
-                              selectedCheques.add(cheque);
-                            }
-                            selectAll = selectedCheques.length ==
-                                chequesAwaiting.length;
-                          }),
-                        ),
-                ),
-                const SizedBox(height: 10),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return cheques.when(
+      data: (chequesList) {
+        final chequesAwaiting =
+            chequesList.where((cheque) => cheque.status == 'Awaiting').toList();
+        return BackgroundGradient(
+          colors: const [darkSecondary, darkPrimary],
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            appBar: buildHeader(),
+            body: Padding(
+              padding: const EdgeInsets.all(10.0),
+              child: SafeArea(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: CreateDepositButton(
-                        isFilled: isFilled(),
-                        onPressed: () =>
-                            createChequeDeposit(context, chequeDeposits),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: accounts.when(
+                        data: (accountList) {
+                          final accountListString = accountList
+                              .map((account) =>
+                                  "${account.accountNo} : ${account.bank}")
+                              .toList();
+                          final options = ["Accounts", ...accountListString];
+                          return FilterDropdown(
+                            selectedFilter: selectedAccount ?? options.first,
+                            options: options,
+                            onSelected: (value) {
+                              setState(() {
+                                selectedAccount =
+                                    value != "Accounts" ? value : null;
+                              });
+                            },
+                          );
+                        },
+                        error: (err, stack) => Text('Error: $err'),
+                        loading: () => const CircularProgressIndicator(),
                       ),
                     ),
-                    const SizedBox(
-                      width: 16,
+                    const SizedBox(height: 16),
+                    SelectAllRow(
+                      selectAll: selectAll,
+                      toggleSelectAll: (value) => setState(() {
+                        selectAll = value;
+                        if (selectAll) {
+                          selectedCheques = [...chequesAwaiting];
+                        } else {
+                          selectedCheques.clear();
+                        }
+                      }),
                     ),
                     Expanded(
-                      child: NavigationButton(
-                        chequeDeposits: chequeDeposits,
-                        removeEmptyChequeDeposit: removeEmptyChequeDeposit,
-                      ),
+                      child: chequesAwaiting.isEmpty
+                          ? const EmptyScreen()
+                          : AwaitingChequesList(
+                              cheques: chequesAwaiting,
+                              selectedCheques: selectedCheques,
+                              onSelectCheque: (cheque) => setState(() {
+                                if (isChequeInSelected(cheque)) {
+                                  selectedCheques.remove(cheque);
+                                } else {
+                                  selectedCheques.add(cheque);
+                                }
+                                selectAll = selectedCheques.length ==
+                                    chequesAwaiting.length;
+                              }),
+                            ),
                     ),
+                    const SizedBox(height: 10),
+                    chequeDeposits.when(
+                      data: (depositsList) {
+                        return Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Expanded(
+                              child: CreateDepositButton(
+                                isFilled: isFilled(),
+                                onPressed: () =>
+                                    createChequeDeposit(context, depositsList),
+                              ),
+                            ),
+                            const SizedBox(
+                              width: 16,
+                            ),
+                            Expanded(
+                              child: NavigationButton(
+                                chequeDeposits: depositsList,
+                                removeEmptyChequeDeposit:
+                                    removeEmptyChequeDeposit,
+                              ),
+                            ),
+                          ],
+                        );
+                      },
+                      error: (err, stack) => Text('Error: $err'),
+                      loading: () => const CircularProgressIndicator(),
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
     );
   }
 
@@ -196,11 +209,8 @@ class _ChequeScreenState extends ConsumerState<ChequeScreen> {
       var deletedCheques = ref.watch(deletedChequesNotfierProvider);
       removeEmptyChequeDeposit(deletedCheques, chequeDeposits);
 
-      String id = chequeDeposits.isEmpty
-          ? '1'
-          : (int.parse(chequeDeposits.last.id) + 1).toString();
       ChequeDeposit newChequeDeposit = ChequeDeposit(
-        id: id,
+        id: '-1',
         depositDate: DateTime.now().toString().substring(0, 10),
         bankAccountNo: selectedAccount!.substring(0, 11),
         status: 'Deposited',
@@ -217,7 +227,6 @@ class _ChequeScreenState extends ConsumerState<ChequeScreen> {
             status: 'Deposited',
             date: DateTime.now().toString().substring(0, 10));
       }
-      ref.read(chequeNotifierProvider.notifier).setByStatus('Awaiting');
       selectAll = false;
       selectedCheques = [];
       selectedAccount = null;

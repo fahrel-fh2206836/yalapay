@@ -1,13 +1,15 @@
+import 'dart:io';
 import 'dart:ui';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/model/payment.dart';
 import 'package:yalapay/providers/banks_provider.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
 import 'package:yalapay/providers/invoice_provider.dart';
-import 'package:yalapay/providers/payment_mode_provider.dart';
 import 'package:yalapay/providers/payment_provider.dart';
 import 'package:yalapay/providers/selected_invoice_provider.dart';
 import 'package:yalapay/providers/show_nav_bar_provider.dart';
@@ -33,6 +35,10 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
   bool isChequeMode = false;
   DateTime? selectedDueDate;
   String selectedImage = 'cheque1.jpg';
+
+  File? _selectedImage;
+
+  // PlatformFile? pickedFile;
 
   final existingChequeSnackBar = const SnackBar(
     backgroundColor: lightSecondary,
@@ -104,6 +110,8 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
                     padding: const EdgeInsets.fromLTRB(16, 32, 16, 16),
                     child: Column(
                       children: [
+                        buildInvoiceDetailsSection(),
+                        const SizedBox(height: 30),
                         buildPaymentDetailsSection(list),
                         const SizedBox(height: 30),
                         if (isChequeMode) buildChequeDetailsSection(banks),
@@ -132,6 +140,49 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
         ),
       ),
       child: Container(color: Colors.black.withOpacity(0.3)),
+    );
+  }
+
+  Widget buildInvoiceDetailsSection() {
+    return StyledContainer(
+      child: SectionTitleWithIcon(
+        icon: Icons.monetization_on_rounded,
+        title: 'Invoice Details',
+        child: ref.watch(selectedInvoiceNotifierProvider).when(
+              data: (invoice) {
+                return Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Invoice Amount",
+                              style: getTextStyle('smallBold',
+                                  color: Colors.white)),
+                          Text("QR ${invoice.amount}",
+                              style:
+                                  getTextStyle('small', color: Colors.white)),
+                        ],
+                      ),
+                    ),
+                    Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text("Pending Balance",
+                              style: getTextStyle('smallBold',
+                                  color: Colors.white)),
+                          Text("QR ${invoice.invoiceBalance}",
+                              style:
+                                  getTextStyle('small', color: Colors.white)),
+                        ]),
+                  ],
+                );
+              },
+              error: (err, stack) => Text('Error: $err'),
+              loading: () => const CircularProgressIndicator(),
+            ),
+      ),
     );
   }
 
@@ -276,11 +327,93 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
             const SizedBox(height: 20),
             buildChequeImageDropdown(),
             const SizedBox(height: 20),
+            _selectedImage != null
+                ? Image.file(_selectedImage!)
+                : Text("Choose image from:",
+                    style: getTextStyle('small', color: Colors.white)),
+            const SizedBox(height: 5),
+            buildImagePicker(),
+            const SizedBox(height: 20),
             buildDueDateButton(),
           ],
         ),
       ),
     );
+  }
+
+  Widget buildImagePicker() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              _pickImageFromGallery();
+              // selectFile();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: lightPrimary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text("Gallery",
+                style: getTextStyle('small', color: Colors.white)),
+          ),
+        ),
+        const SizedBox(
+          width: 10,
+        ),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () {
+              _pickImageFromCamera();
+              // selectFile();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: lightPrimary,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text("Camera",
+                style: getTextStyle('small', color: Colors.white)),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future _pickImageFromGallery() async {
+    final returnedImage =
+        await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (returnedImage == null) return;
+    setState(() {
+      _selectedImage = File(returnedImage!.path);
+    });
+  }
+
+  Future _pickImageFromCamera() async {
+    final returnedImage =
+        await ImagePicker().pickImage(source: ImageSource.camera);
+    if (returnedImage == null) return;
+    setState(() {
+      _selectedImage = File(returnedImage!.path);
+    });
+  }
+
+  // Future selectFile() async {
+  //   final result = await FilePicker.platform.pickFiles();
+  //   if(result == null) return;
+  //   setState(() {
+  //     pickedFile = result.files.first;
+  //   });
+  // }
+
+  Future uploadFileToFirebase() async {
+    final path = "files/${_selectedImage!}";
+    final file = File(_selectedImage!.path!);
+
+    final ref = FirebaseStorage.instance.ref().child(path);
+    ref.putFile(file);
   }
 
   Widget buildChequeImageDropdown() {
@@ -370,7 +503,10 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => handleAddPayment(context),
+                    onPressed: () { 
+                      handleAddPayment(context);
+                      uploadFileToFirebase();
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: lightPrimary,
                       shape: RoundedRectangleBorder(
@@ -409,53 +545,70 @@ class AddPaymentScreenState extends ConsumerState<AddPaymentScreen> {
       return;
     }
 
-    final invoice = ref.read(selectedInvoiceNotifierProvider);
-    final amount = double.parse(amountController.text);
-    final dateNow = DateTime.now().toString().substring(0, 10);
-    final payments = ref.read(paymentNotifierProvider);
+    final selectedInvoice = ref.watch(selectedInvoiceNotifierProvider);
+    selectedInvoice.when(
+      data: (invoice) async {
+        final amount = double.parse(amountController.text);
+        final dateNow = DateTime.now().toString().substring(0, 10);
 
-    String newPaymentId = (int.parse(payments.last.id) + 1).toString();
-    Payment newPayment = Payment(
-      id: newPaymentId,
-      invoiceNo: invoice.id,
-      amount: amount,
-      paymentDate: dateNow,
-      paymentMode: modeController.text,
+        String newPaymentId = '-1';
+        Payment newPayment = Payment(
+          id: newPaymentId,
+          invoiceNo: invoice.id,
+          amount: amount,
+          paymentDate: dateNow,
+          paymentMode: modeController.text,
+        );
+
+        Cheque? newCheque;
+        if (isChequeMode) {
+          int newChequeNo = int.parse(chequeNoController.text);
+          bool isDuplicate = await ref
+              .read(chequeNotifierProvider.notifier)
+              .checkIdDuplicate(newChequeNo);
+
+          if (isDuplicate) {
+            ScaffoldMessenger.of(context).showSnackBar(existingChequeSnackBar);
+            return;
+          }
+          newPayment.chequeNo = newChequeNo;
+          newCheque = Cheque(
+            chequeNo: newChequeNo,
+            amount: amount,
+            drawer: drawerController.text,
+            bankName: drawerBankController.text,
+            status: 'Awaiting',
+            receivedDate: dateNow,
+            dueDate: selectedDueDate.toString().substring(0, 10),
+            chequeImageUri: selectedImage,
+          );
+          ref.read(chequeNotifierProvider.notifier).addCheque(newCheque);
+        }
+        ref.read(paymentNotifierProvider.notifier).addPayment(newPayment);
+
+        ref.watch(chequeNotifierProvider).when(
+              data: (cheques) {
+                if (newCheque != null) {
+                  cheques.add(newCheque);
+                }
+                invoice.payments.add(newPayment);
+                invoice.updateInvoiceBalance(cheques);
+                invoice.updateStatus();
+              },
+              error: (err, stack) => Text('Error: $err'),
+              loading: () => const CircularProgressIndicator(),
+            );
+
+        ref.read(invoiceNotifierProvider.notifier)
+          ..removeInvoice(invoice.id)
+          ..addInvoice(invoice);
+
+        clearAllFields();
+        ScaffoldMessenger.of(context).showSnackBar(paymentSuccessfulSnackBar);
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
     );
-
-    if (isChequeMode) {
-      int newChequeNo = int.parse(chequeNoController.text);
-      bool isDuplicate = ref
-          .read(chequeNotifierProvider.notifier)
-          .checkIdDuplicate(newChequeNo);
-      if (isDuplicate) {
-        ScaffoldMessenger.of(context).showSnackBar(existingChequeSnackBar);
-        return;
-      }
-      newPayment.chequeNo = newChequeNo;
-      Cheque newCheque = Cheque(
-        chequeNo: newChequeNo,
-        amount: amount,
-        drawer: drawerController.text,
-        bankName: drawerBankController.text,
-        status: 'Awaiting',
-        receivedDate: dateNow,
-        dueDate: selectedDueDate.toString().substring(0, 10),
-        chequeImageUri: selectedImage,
-      );
-      ref.read(chequeNotifierProvider.notifier).addCheque(newCheque);
-    }
-
-    ref.read(paymentNotifierProvider.notifier).addPayment(newPayment, false);
-    ref
-        .read(selectedInvoiceNotifierProvider.notifier)
-        .addNewPayment(newPayment, ref.read(chequeNotifierProvider));
-    ref.read(invoiceNotifierProvider.notifier)
-      ..removeInvoice(invoice.id)
-      ..addInvoice(invoice);
-
-    clearAllFields();
-    ScaffoldMessenger.of(context).showSnackBar(paymentSuccessfulSnackBar);
   }
 
   bool isAllFieldsFilled() {
@@ -502,3 +655,4 @@ class StyledContainer extends StatelessWidget {
     );
   }
 }
+

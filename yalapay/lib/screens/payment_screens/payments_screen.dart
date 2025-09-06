@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/cheque.dart';
+import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
 import 'package:yalapay/providers/deleted_cheques_provider.dart';
 import 'package:yalapay/providers/invoice_provider.dart';
@@ -43,7 +44,15 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
     setState(() {
       isFilterEnabled = !isFilterEnabled;
       if (!isFilterEnabled) {
-        ref.read(paymentNotifierProvider.notifier).showAllPayments();
+        ref.watch(selectedInvoiceNotifierProvider).when(
+              data: (invoice) {
+                ref
+                    .read(paymentNotifierProvider.notifier)
+                    .getPaymentsByInvoiceId(invoice.id);
+              },
+              error: (err, stack) => Text('Error: $err'),
+              loading: () => const CircularProgressIndicator(),
+            );
       }
     });
   }
@@ -103,27 +112,38 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: SafeArea(
-                  child: Column(
-                    children: [
-                      const SizedBox(height: 20),
-                      FrostedGlassBox(
-                        boxWidth: double.infinity,
-                        boxChild: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(
-                              width: double.infinity,
-                              child: InvoiceDetails(invoice: invoice),
+                  child: invoice.when(
+                    data: (selectedInvoice) {
+                      return Column(
+                        children: [
+                          const SizedBox(height: 20),
+                          FrostedGlassBox(
+                            boxWidth: double.infinity,
+                            boxChild: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                SizedBox(
+                                  width: double.infinity,
+                                  child:
+                                      InvoiceDetails(invoice: selectedInvoice),
+                                ),
+                                if (isFilterEnabled)
+                                  FilterSection(invoiceId: selectedInvoice.id),
+                              ],
                             ),
-                            if (isFilterEnabled) const FilterSection(),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Expanded(
-                        child: PaymentList(invoiceId: invoice.id),
-                      ),
-                    ],
+                          ),
+                          const SizedBox(height: 20),
+                          Expanded(
+                            child: PaymentList(
+                              invoice: selectedInvoice,
+                              isFilterEnabled: isFilterEnabled,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                    error: (err, stack) => Text('Error: $err'),
+                    loading: () => const CircularProgressIndicator(),
                   ),
                 ),
               ),
@@ -136,7 +156,7 @@ class _PaymentsScreenState extends ConsumerState<PaymentsScreen> {
 }
 
 class InvoiceDetails extends StatelessWidget {
-  final dynamic invoice;
+  final Invoice invoice;
 
   const InvoiceDetails({super.key, required this.invoice});
 
@@ -156,7 +176,7 @@ class InvoiceDetails extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Invoice ID ${invoice.id} for Customer:',
+                'Invoice ID ${invoice.id}',
                 style: getTextStyle('small', color: Colors.grey),
               ),
             ],
@@ -176,27 +196,41 @@ class InvoiceDetails extends StatelessWidget {
 }
 
 class PaymentList extends ConsumerWidget {
-  final String invoiceId;
+  final Invoice invoice;
+  final bool isFilterEnabled;
 
-  const PaymentList({super.key, required this.invoiceId});
+  const PaymentList(
+      {super.key, required this.invoice, required this.isFilterEnabled});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final allCheques = ref.watch(chequeNotifierProvider);
     final allPayments = ref.watch(paymentNotifierProvider);
-    final cheques = ref.watch(chequeNotifierProvider);
-
-    final payments =
-        allPayments.where((payment) => payment.invoiceNo == invoiceId).toList();
-
-    return payments.isEmpty
-        ? const Center(child: SingleChildScrollView(child: EmptyScreen()))
-        : ListView.builder(
-            itemCount: payments.length,
-            itemBuilder: (context, index) {
-              final payment = payments[index];
-              return PaymentCard(payment: payment, cheques: cheques);
-            },
-          );
+    return allPayments.when(
+        data: (payments) {
+          if (!isFilterEnabled) {
+            ref
+                .read(paymentNotifierProvider.notifier)
+                .getPaymentsByInvoiceId(invoice.id);
+          }
+          return payments.isEmpty
+              ? const Center(child: SingleChildScrollView(child: EmptyScreen()))
+              : allCheques.when(
+                  data: (chequesList) {
+                    return ListView.builder(
+                      itemCount: payments.length,
+                      itemBuilder: (context, index) {
+                        final payment = payments[index];
+                        return PaymentCard(
+                            payment: payment, cheques: chequesList);
+                      },
+                    );
+                  },
+                  error: (err, stack) => Text('Error: $err'),
+                  loading: () => const CircularProgressIndicator());
+        },
+        error: (err, stack) => Text('Error: $err'),
+        loading: () => const CircularProgressIndicator());
   }
 }
 
@@ -267,33 +301,49 @@ class PaymentCard extends ConsumerWidget {
                     message: 'Are you sure you want to delete this payment?',
                     itemToDelete: payment.id,
                     deleteFunction: (id) {
-                      final invoice =
+                      final selectedinvoice =
                           ref.watch(selectedInvoiceNotifierProvider);
-                      ref
-                          .read(paymentNotifierProvider.notifier)
-                          .removePayment(id);
-                      ref
-                          .read(selectedInvoiceNotifierProvider.notifier)
-                          .deletePayment(id, cheques);
+                      selectedinvoice.when(
+                        data: (invoice) {
+                          ref
+                              .read(paymentNotifierProvider.notifier)
+                              .removePayment(id);
 
-                      if (payment.chequeNo != -1) {
-                        ref
-                            .read(chequeNotifierProvider.notifier)
-                            .removeCheque(payment.chequeNo);
+                          if (payment.chequeNo != -1) {
+                            ref
+                                .read(chequeNotifierProvider.notifier)
+                                .removeCheque(payment.chequeNo);
 
-                        List<int> chequeNoList = [];
-                        chequeNoList.add(payment.chequeNo);
-                        ref
-                            .read(deletedChequesNotfierProvider.notifier)
-                            .addRecentlyDeletedCheques((chequeNoList));
-                      }
+                            List<int> chequeNoList = [];
+                            chequeNoList.add(payment.chequeNo);
+                            ref
+                                .read(deletedChequesNotfierProvider.notifier)
+                                .addRecentlyDeletedCheques((chequeNoList));
+                          }
 
-                      ref
-                          .read(invoiceNotifierProvider.notifier)
-                          .removeInvoice(invoice.id);
-                      ref
-                          .read(invoiceNotifierProvider.notifier)
-                          .addInvoice(invoice);
+                          ref.watch(chequeNotifierProvider).when(
+                                data: (cheques) {
+                                  invoice.payments.remove(invoice.payments
+                                      .where((payment) => payment.id == id)
+                                      .first);
+                                  invoice.updateInvoiceBalance(cheques);
+                                  invoice.updateStatus();
+                                },
+                                error: (err, stack) => Text('Error: $err'),
+                                loading: () =>
+                                    const CircularProgressIndicator(),
+                              );
+
+                          ref
+                              .read(invoiceNotifierProvider.notifier)
+                              .removeInvoice(invoice.id);
+                          ref
+                              .read(invoiceNotifierProvider.notifier)
+                              .addInvoice(invoice);
+                        },
+                        error: (err, stack) => Text('Error: $err'),
+                        loading: () => const CircularProgressIndicator(),
+                      );
                     },
                   ),
                 );

@@ -25,13 +25,25 @@ class ChequeDeposit {
     );
   }
 
+  factory ChequeDeposit.fromJson2(Map<String, dynamic> map) {
+    return ChequeDeposit(
+      id: map['id'] as String,
+      depositDate: map['depositDate'] as String,
+      bankAccountNo: map['bankAccountNo'] as String,
+      status: map['status'] as String,
+      chequeNos: List<int>.from(map['chequeNos']),
+      cashedDate: map['cashedDate'],
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
       'depositDate': depositDate,
       'bankAccountNo': bankAccountNo,
       'status': status,
-      'chequeNos': chequeNos,
+      'chequeNos': chequeNos.cast<int>(),
+      'cashedDate': cashedDate,
     };
   }
 }

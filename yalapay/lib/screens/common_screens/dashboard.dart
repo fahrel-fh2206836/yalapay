@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:yalapay/constants/constants.dart';
+import 'package:yalapay/providers/cheque_provider.dart';
 import 'package:yalapay/providers/logged_in_user_provider.dart';
 import 'package:yalapay/routes/app_router.dart';
+import 'package:yalapay/services/auth_service.dart';
 import 'package:yalapay/styling/background.dart';
 import 'package:yalapay/widget/filter_dropdown.dart';
 
@@ -68,8 +70,9 @@ class DashboardAppBar extends ConsumerWidget implements PreferredSizeWidget {
       elevation: 5,
       actions: [
         IconButton(
-          onPressed: () {
+          onPressed: () async {
             ref.read(loggedInUserNotifierProvider.notifier).clearUser();
+            await AuthService().signout(context: context);
             context.go(AppRouter.login.path);
           },
           icon: const Icon(Icons.logout),
@@ -202,47 +205,97 @@ class _InvoiceSummaryState extends ConsumerState<InvoiceSummary> {
   }
 }
 
-class ChequeSummaryScrollable extends StatelessWidget {
+class ChequeSummaryScrollable extends ConsumerStatefulWidget {
   const ChequeSummaryScrollable({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final chequeData = [
-      {"title": "Awaiting", "value": "QR 99.99", "icon": Icons.timer_outlined},
-      {"title": "Deposited", "value": "QR 22.22", "icon": Icons.send_outlined},
-      {"title": "Cashed", "value": "QR 44.44", "icon": Icons.attach_money},
-      {"title": "Returned", "value": "QR 11.11", "icon": Icons.keyboard_return},
-    ];
+  ConsumerState<ChequeSummaryScrollable> createState() =>
+      _ChequeSummaryScrollable();
+}
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24),
-          child: Row(
-            children: [
-              Text(
-                "Cheque Statistics",
-                style: getTextStyle('medium', color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(
-          height: 180,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            itemCount: chequeData.length,
-            itemBuilder: (context, index) {
-              return ChequeBox(
-                title: chequeData[index]["title"] as String,
-                value: chequeData[index]["value"] as String,
-                icon: chequeData[index]["icon"] as IconData,
-              );
-            },
-          ),
-        ),
-      ],
-    );
+class _ChequeSummaryScrollable extends ConsumerState<ChequeSummaryScrollable> {
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder(
+        future: ref
+            .read(chequeNotifierProvider.notifier)
+            .getChequeTotalByStatus("Awaiting"),
+        builder: (context, awaiting) {
+          return FutureBuilder(
+              future: ref
+                  .read(chequeNotifierProvider.notifier)
+                  .getChequeTotalByStatus("Deposited"),
+              builder: (context, deposited) {
+                return FutureBuilder(
+                    future: ref
+                        .read(chequeNotifierProvider.notifier)
+                        .getChequeTotalByStatus("Cashed"),
+                    builder: (context, cashed) {
+                      return FutureBuilder(
+                          future: ref
+                              .read(chequeNotifierProvider.notifier)
+                              .getChequeTotalByStatus("Returned"),
+                          builder: (context, returned) {
+                            final chequeData = [
+                              {
+                                "title": "Awaiting",
+                                "value": 'QAR ${awaiting.data.toString()}',
+                                "icon": Icons.timer_outlined
+                              },
+                              {
+                                "title": "Deposited",
+                                "value": 'QAR ${deposited.data.toString()}',
+                                "icon": Icons.send_outlined
+                              },
+                              {
+                                "title": "Cashed",
+                                "value": 'QAR ${cashed.data.toString()}',
+                                "icon": Icons.attach_money
+                              },
+                              {
+                                "title": "Returned",
+                                "value": 'QAR ${returned.data.toString()}',
+                                "icon": Icons.keyboard_return
+                              },
+                            ];
+                            return Column(
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0, vertical: 24),
+                                  child: Row(
+                                    children: [
+                                      Text(
+                                        "Cheque Statistics",
+                                        style: getTextStyle('medium',
+                                            color: Colors.white),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(
+                                  height: 180,
+                                  child: ListView.builder(
+                                    scrollDirection: Axis.horizontal,
+                                    itemCount: chequeData.length,
+                                    itemBuilder: (context, index) {
+                                      return ChequeBox(
+                                        title: chequeData[index]["title"]
+                                            as String,
+                                        value: chequeData[index]["value"]
+                                            as String,
+                                        icon: chequeData[index]["icon"]
+                                            as IconData,
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          });
+                    });
+              });
+        });
   }
 }
 
@@ -293,7 +346,7 @@ class ChequeBox extends StatelessWidget {
                     children: [
                       Text(
                         value,
-                        style: getTextStyle('largeBold', color: Colors.white),
+                        style: getTextStyle('mediumBold', color: Colors.white),
                       ),
                     ],
                   ),

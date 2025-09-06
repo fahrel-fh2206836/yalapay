@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:yalapay/constants/constants.dart';
 
 class FrostedGlassBox extends StatelessWidget {
   final double boxWidth;
@@ -53,13 +54,14 @@ class FrostedGlassBox extends StatelessWidget {
   }
 }
 
-class FrostedGlassTextField extends StatelessWidget {
+class FrostedGlassTextField extends StatefulWidget {
   final TextEditingController controller;
   final bool obscureText;
   final String hintText;
   final Icon prefixIcon;
   final IconButton? suffixIcon;
   final TextInputType keyboardType;
+  final TextStyle? hintTextStyle;
 
   const FrostedGlassTextField({
     super.key,
@@ -69,10 +71,32 @@ class FrostedGlassTextField extends StatelessWidget {
     required this.prefixIcon,
     this.suffixIcon,
     this.keyboardType = TextInputType.text,
+    this.hintTextStyle,
   });
 
   @override
+  _FrostedGlassTextFieldState createState() => _FrostedGlassTextFieldState();
+}
+
+class _FrostedGlassTextFieldState extends State<FrostedGlassTextField> {
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    bool isFocused = _focusNode.hasFocus;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(10),
       child: Container(
@@ -84,12 +108,16 @@ class FrostedGlassTextField extends StatelessWidget {
               filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
               child: Container(),
             ),
-            Container(
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color:
-                      const Color.fromARGB(255, 198, 198, 198).withOpacity(0.1),
+                  color: isFocused
+                      ? lightSecondary.withOpacity(0.8)
+                      : const Color.fromARGB(255, 198, 198, 198)
+                          .withOpacity(0.1),
+                  width: isFocused ? 2.0 : 1.0,
                 ),
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -99,13 +127,24 @@ class FrostedGlassTextField extends StatelessWidget {
                     const Color.fromARGB(255, 170, 170, 170).withOpacity(0.05),
                   ],
                 ),
+                boxShadow: isFocused
+                    ? [
+                        BoxShadow(
+                          color:
+                              Theme.of(context).primaryColor.withOpacity(0.5),
+                          blurRadius: 8.0,
+                          spreadRadius: 1.0,
+                        ),
+                      ]
+                    : [],
               ),
             ),
             Center(
               child: TextField(
-                controller: controller,
-                obscureText: obscureText,
-                keyboardType: keyboardType,
+                focusNode: _focusNode,
+                controller: widget.controller,
+                obscureText: widget.obscureText,
+                keyboardType: widget.keyboardType,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: Colors.transparent,
@@ -113,10 +152,11 @@ class FrostedGlassTextField extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     borderSide: BorderSide.none,
                   ),
-                  hintText: hintText,
-                  prefixIcon: prefixIcon,
-                  suffixIcon: suffixIcon,
-                  hintStyle: TextStyle(color: Colors.grey[400]),
+                  hintText: widget.hintText,
+                  prefixIcon: widget.prefixIcon,
+                  suffixIcon: widget.suffixIcon,
+                  hintStyle: widget.hintTextStyle ??
+                      TextStyle(fontSize: 14.0, color: Colors.grey[400]),
                 ),
                 style: const TextStyle(color: Colors.white),
               ),

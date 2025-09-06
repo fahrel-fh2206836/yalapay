@@ -1,65 +1,72 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/model/invoice.dart';
-import 'package:yalapay/repositories/invoice_repository.dart';
+import 'package:yalapay/model/payment.dart';
+import 'package:yalapay/providers/cheque_provider.dart';
+import 'package:yalapay/providers/payment_provider.dart';
+import 'package:yalapay/providers/repo_provider.dart';
+import 'package:yalapay/repositories/yalapay_repo.dart';
 
-class InvoiceNotifier extends Notifier<List<Invoice>> {
-  final InvoiceRepository _repo = InvoiceRepository();
-  List<Invoice> _allInvoices = [];
+class InvoiceNotifier extends AsyncNotifier<List<Invoice>> {
+  late final YalapayRepo _repo;
+  // late List<Invoice> invoiceList;
 
   @override
-  List<Invoice> build() {
+  Future<List<Invoice>> build() async {
+    _repo = await ref.watch(repoProvider.future);
     initializeInvoices();
     return [];
   }
 
   void initializeInvoices() async {
-    List<Invoice> invoices = await _repo.getInvoices();
-    _allInvoices = invoices;
-    state = invoices;
+    _repo.observeInvoices().listen((invoices) {
+      for (var invoice in invoices) {
+        List<Payment> invoicePayments = ref
+            .read(paymentNotifierProvider.notifier)
+            .allPayments
+            .where((payment) => payment.invoiceNo == invoice.id)
+            .toList();
+        invoice.addAllPayments(invoicePayments);
+        invoice.updateInvoiceBalance(
+            ref.read(chequeNotifierProvider.notifier).allCheques);
+        invoice.updateStatus();
+      }
+      state = AsyncData(invoices);
+      // invoiceList = List.from(invoice);
+    });
   }
 
-  void filterByIdName(String value) {
-    state = _allInvoices
-        .where((invoice) =>
-            invoice.customerName.toLowerCase().contains(value.toLowerCase()) ||
-            invoice.id.contains(value))
-        .toList();
+  void filterById(String value) {
+    _repo.filterInvoiceById(value).listen((invoice) {
+      state = AsyncData(invoice);
+    }).onError((error) => print(error));
   }
 
-  void showAll() {
-    state = _allInvoices;
-  }
+  void showAll() => initializeInvoices();
 
   void removeInvoice(String id) {
-    state = state.where((invoice) => invoice.id != id).toList();
-    _allInvoices = _allInvoices.where((invoice) => invoice.id != id).toList();
-    _repo.invoices = state;
+    _repo.deleteInvoice(id);
   }
 
   void addInvoice(Invoice invoice) {
-    state = [...state, invoice];
-    _allInvoices = [..._allInvoices, invoice];
-    _repo.invoices = state;
+    _repo.addInvoice(invoice);
   }
 
-  List<Invoice> getInvoicesByCustId(String custId) =>
-      state.where((invoice) => invoice.customerId == custId).toList();
+  Future<List<Invoice>> getInvoicesByCustId(String custId) =>
+      _repo.getInvoicesByCustId(custId);
 
-  void updateInvoiceCust(String custId, String newCompanyName) {
-    List<Invoice> invoicesOfCustomer = getInvoicesByCustId(custId);
-    for (var invoice in invoicesOfCustomer) {
-      removeInvoice(invoice.id);
+  void updateInvoiceCust(String custId, String newCompanyName) async {
+    List<Invoice> customerInvoice = await _repo.getInvoicesByCustId(custId);
+    for (var invoice in customerInvoice) {
       invoice.customerName = newCompanyName;
-      addInvoice(invoice);
+      _repo.updateInvoice(invoice);
     }
   }
 
-  void updateInvoiceDue(String newDateString, String id) {
-    Invoice invoice = getInvoice(id);
-    removeInvoice(id);
-    invoice.dueDate = newDateString;
-    addInvoice(invoice);
+  void updateInvoiceDue(String newDateString, String id) async {
+    var invoice = await getInvoice(id);
+    invoice!.dueDate = newDateString;
+    _repo.updateInvoice(invoice);
   }
 
   void filterByDate(String dateFrom, String dateTo) {
@@ -88,41 +95,32 @@ class InvoiceNotifier extends Notifier<List<Invoice>> {
       }
     }
 
-    List<Invoice> updated = [];
-    for (var invoice in _allInvoices) {
-      DateTime invoiceDate = DateTime.parse(invoice.dueDate);
-      if (invoiceDate.isBefore(_dateTo) || invoiceDate.isAfter(_dateFrom)) {
-        updated.add(invoice);
-      }
-    }
-    state = updated;
+    _repo.filterInvoiceByDate(_dateFrom, _dateTo);
   }
 
-  double getTotal() {
-    if (state.isNotEmpty) {
-      List<double> amounts = state.map((invoice) => invoice.amount).toList();
-      return amounts.reduce((a, b) => a + b);
-    } else {
-      return 0;
-    }
-  }
+  Future<double> getTotal() => _repo.getTotalAmountOfInvoices();
 
-  List<Invoice> filterByStatus(String status) {
-    return state.where((invoice) => invoice.status == status).toList();
-  }
+  Stream<List<Invoice>> filterByStatus(String status) =>
+      _repo.filterInvoiceByStatus(status);
 
-  List<Invoice> getInvoiceList(){
-    return _allInvoices;
-  }
+//  List<Invoice> getInvoiceList() => invoiceList;//Nott sure
 
-  Invoice getInvoice(String id) =>
-      state.firstWhere((invoice) => invoice.id == id);
+  Future<Invoice?> getInvoice(String id) => _repo.getInvoiceById(id);
 
-  void sortById() {
-    _allInvoices.sort((a, b) => a.id.compareTo(b.id));
-    state = List.from(_allInvoices);
+  Future<void> sortById() async {
+    _repo.sortInvoicesById().listen((invoices) {
+      state = AsyncData(invoices);
+    });
   }
 }
 
 final invoiceNotifierProvider =
-    NotifierProvider<InvoiceNotifier, List<Invoice>>(() => InvoiceNotifier());
+    AsyncNotifierProvider<InvoiceNotifier, List<Invoice>>(
+        () => InvoiceNotifier());
+
+//Invoice status provider
+final invoiceStatusProvider = FutureProvider<List<String>>((ref) async {
+  final repository = await ref.watch(yalaPayStaticRepoProvider.future);
+  final invoiceStatues = await repository.getInvoiceStatus();
+  return invoiceStatues.map((status) => status.invoiceStatus).toList();
+});

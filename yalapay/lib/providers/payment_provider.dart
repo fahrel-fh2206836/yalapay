@@ -1,71 +1,73 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/model/payment.dart';
-import 'package:yalapay/repositories/payment_repository.dart';
+import 'package:yalapay/providers/repo_provider.dart';
 
-class PaymentNotifier extends Notifier<List<Payment>> {
-  final PaymentRepository _repo = PaymentRepository();
-  List<Payment> _allPayments = [];
+import 'package:yalapay/repositories/yalapay_repo.dart';
+
+class PaymentNotifier extends AsyncNotifier<List<Payment>> {
+  late final YalapayRepo _repo;
+  List<Payment> allPayments = [];
 
   @override
-  List<Payment> build() {
+  Future<List<Payment>> build() async {
+    _repo = await ref.watch(repoProvider.future);
     initializePayments();
     return [];
   }
 
   Future<void> initializePayments() async {
-    _allPayments = await _repo.getPayments();
-    state = List.from(_allPayments);
+    _repo.observePayments().listen((payments) {
+      state = AsyncData(payments);
+      allPayments = List.from(payments);
+    });
   }
 
-  void addPayment(Payment payment, [bool addRepo = true]) {
-    _allPayments.add(payment);
-    state = List.from(_allPayments);
-    if (addRepo) {
-      _repo.addPayment(payment);
-    }
+  void addPayment(Payment payment) {
+    _repo.addPayment(payment);
   }
 
   void removePayment(String id) {
-    _allPayments.removeWhere((payment) => payment.id == id);
-    state = List.from(_allPayments);
     _repo.removePayment(id);
   }
 
-  void showAllPayments() {
-    state = List.from(_allPayments);
+  void showAllPayments() => initializePayments();
+
+  Future<void> filterPaymentByAmount(double amount, String invoiceId) async {
+    _repo.filterPaymentByAmount(amount, invoiceId).listen((payment) {
+      state = AsyncData(payment);
+    });
   }
 
-  void filterPaymentByAmount(double amount) {
-    state = _allPayments.where((payment) => payment.amount >= amount).toList();
+  Future<void> filterPaymentByMode(String mode, String invoiceId) async {
+    _repo.filterPaymentByMode(mode, invoiceId).listen((payment) {
+      state = AsyncData(payment);
+    });
   }
 
-  void filterPaymentByMode(String mode) {
-    state =
-        _allPayments.where((payment) => payment.paymentMode == mode).toList();
-  }
-
-  bool filterPaymentByDate(String dateString) {
+  Future<void> filterPaymentByDate(String dateString, String invoiceId) async {
     DateTime dateAfter = DateTime.parse(dateString);
-    state = _allPayments
-        .where(
-            (payment) => DateTime.parse(payment.paymentDate).isAfter(dateAfter))
-        .toList();
-    return true;
+    _repo.filterPaymentByDate(dateAfter, invoiceId).listen((payment) {
+      state = AsyncData(payment);
+    });
   }
 
-  Payment getPaymentWithChequeNo(int chequeNo) =>
-      state.firstWhere((payment) => payment.chequeNo == chequeNo);
-
-  List<Payment> tempPayments = [];
-
-  void setSelectedPaymentList(List<Payment> payments) {
-    tempPayments = [];
-    for (var payment in payments) {
-      tempPayments.add(payment);
-    }
-    state = payments;
+  Future<void> getPaymentsByInvoiceId(String id) async {
+    _repo.getPaymentsByInvoiceId(id).listen((payment) {
+      state = AsyncData(payment);
+    });
   }
+
+  Future<Payment?> getPaymentWithChequeNo(int chequeNo) =>
+      _repo.getPaymentWithChequeNo(chequeNo);
 }
 
 final paymentNotifierProvider =
-    NotifierProvider<PaymentNotifier, List<Payment>>(() => PaymentNotifier());
+    AsyncNotifierProvider<PaymentNotifier, List<Payment>>(
+        () => PaymentNotifier());
+
+// Payment Mode Provider
+final paymentModeProvider = FutureProvider<List<String>>((ref) async {
+  final repository = await ref.watch(yalaPayStaticRepoProvider.future);
+  final modes = await repository.getPaymentMode();
+  return modes.map((mode) => mode.paymentMode).toList();
+});

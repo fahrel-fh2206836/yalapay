@@ -32,7 +32,6 @@ class _CustomerDetailsState extends ConsumerState<CustomerDetailsScreen> {
   final TextEditingController lastNameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController mobileController = TextEditingController();
-
   @override
   void initState() {
     super.initState();
@@ -56,10 +55,6 @@ class _CustomerDetailsState extends ConsumerState<CustomerDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final customer = ref
-        .read(customerNotifierProvider.notifier)
-        .getCustomer(widget.customerId);
-
     return GestureDetector(
       onTap: () {
         FocusScope.of(context).unfocus();
@@ -75,170 +70,181 @@ class _CustomerDetailsState extends ConsumerState<CustomerDetailsScreen> {
           }
           return;
         },
-        child: Scaffold(
-          extendBodyBehindAppBar: true,
-          extendBody: true,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors.transparent,
-            elevation: 0,
-            flexibleSpace: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                child: Container(
-                  color: Colors.black.withOpacity(0.2),
-                ),
-              ),
-            ),
-            title: isEditing
-                ? Text(
-                    "Editing Customer",
-                    style: getTextStyle('largeBold', color: Colors.white),
-                  )
-                : Text(
-                    "Customer Details",
-                    style: getTextStyle('largeBold', color: Colors.white),
-                  ),
-            centerTitle: true,
-            leading: IconButton(
-              icon: const Icon(Icons.arrow_back),
-              onPressed: () {
-                ref
-                    .read(showNavBarNotifierProvider.notifier)
-                    .showBottomNavBar(true);
-                Navigator.of(context).pop();
-              },
-            ),
-            actions: [
-              IconButton(
-                icon: Icon(isEditing ? Icons.done : Icons.edit),
-                onPressed: () {
-                  setState(() {
-                    isEditing = !isEditing;
-                    if (isEditing) {
-                      initializeControllers(customer);
-                    }
-                  });
-                },
-              ),
-            ],
-          ),
-          body: Stack(
-            children: [
-              Container(
-                decoration: const BoxDecoration(
-                  image: DecorationImage(
-                    image: AssetImage("assets/images/bg4.jpg"),
-                    fit: BoxFit.cover,
+        child: FutureBuilder(
+          future: ref
+              .read(customerNotifierProvider.notifier)
+              .getCustomer(widget.customerId),
+          builder: (context, snapshot) {
+            if (snapshot.data == null) {
+              return const CircularProgressIndicator();
+            }
+            return Scaffold(
+              extendBodyBehindAppBar: true,
+              extendBody: true,
+              appBar: AppBar(
+                automaticallyImplyLeading: false,
+                backgroundColor: Colors.transparent,
+                elevation: 0,
+                flexibleSpace: ClipRect(
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.2),
+                    ),
                   ),
                 ),
-                child: Container(
-                  color: Colors.black.withOpacity(0.3),
+                title: isEditing
+                    ? Text(
+                        "Editing Customer",
+                        style: getTextStyle('largeBold', color: Colors.white),
+                      )
+                    : Text(
+                        "Customer Details",
+                        style: getTextStyle('largeBold', color: Colors.white),
+                      ),
+                centerTitle: true,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () {
+                    ref
+                        .read(showNavBarNotifierProvider.notifier)
+                        .showBottomNavBar(true);
+                    Navigator.of(context).pop();
+                  },
                 ),
+                actions: [
+                  IconButton(
+                    icon: Icon(isEditing ? Icons.done : Icons.edit),
+                    onPressed: () {
+                      setState(() {
+                        isEditing = !isEditing;
+                        if (isEditing) {
+                          initializeControllers(snapshot.data);
+                        }
+                      });
+                    },
+                  ),
+                ],
               ),
-              SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 120, 16, 16),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Column(
+              body: Stack(
+                children: [
+                  Container(
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(
+                        image: AssetImage("assets/images/bg4.jpg"),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    child: Container(
+                      color: Colors.black.withOpacity(0.3),
+                    ),
+                  ),
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 120, 16, 16),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Container(
-                            width: 48,
-                            height: 48,
-                            decoration: const BoxDecoration(
-                              color: lightSecondary,
-                              shape: BoxShape.circle,
+                        Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: const BoxDecoration(
+                                  color: lightSecondary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.person_2_rounded,
+                                  color: Colors.white,
+                                  size: 40,
+                                ),
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.person_2_rounded,
-                              color: Colors.white,
-                              size: 40,
+                            CompanyNameSection(
+                              isEditing: isEditing,
+                              controller: companyNameController,
+                              companyName: snapshot.data!.companyName,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        FrostedGlassBox(
+                          boxWidth: double.infinity,
+                          isCurved: true,
+                          boxChild: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: AddressSection(
+                              isEditing: isEditing,
+                              controllers: [
+                                streetNameController,
+                                cityNameController,
+                                countryNameController
+                              ],
+                              address: snapshot.data!.address,
                             ),
                           ),
                         ),
-                        CompanyNameSection(
-                          isEditing: isEditing,
-                          controller: companyNameController,
-                          companyName: customer.companyName,
+                        const SizedBox(height: 20),
+                        FrostedGlassBox(
+                          boxWidth: double.infinity,
+                          isCurved: true,
+                          boxChild: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: ContactDetailsSection(
+                              isEditing: isEditing,
+                              controllers: [
+                                firstNameController,
+                                lastNameController,
+                                emailController,
+                                mobileController
+                              ],
+                              contactDetails: snapshot.data!.contactDetails,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(
+                          height: 100,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
-                    FrostedGlassBox(
-                      boxWidth: double.infinity,
-                      isCurved: true,
-                      boxChild: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: AddressSection(
-                          isEditing: isEditing,
-                          controllers: [
-                            streetNameController,
-                            cityNameController,
-                            countryNameController
-                          ],
-                          address: customer.address,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    FrostedGlassBox(
-                      boxWidth: double.infinity,
-                      isCurved: true,
-                      boxChild: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: ContactDetailsSection(
-                          isEditing: isEditing,
-                          controllers: [
-                            firstNameController,
-                            lastNameController,
-                            emailController,
-                            mobileController
-                          ],
-                          contactDetails: customer.contactDetails,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(
-                      height: 100,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          bottomNavigationBar: isEditing
-              ? ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(20),
-                    topRight: Radius.circular(20),
                   ),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                    child: BottomAppBar(
-                      color: Colors.black.withOpacity(0.4),
-                      elevation: 0,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 8),
-                        child: ElevatedButton(
-                          onPressed: () {
-                            FocusScope.of(context).unfocus();
-                            showUpdateConfirmationDialog(context);
-                          },
-                          style: purpleButtonStyle,
-                          child: Text(
-                            "Update",
-                            style: getTextStyle('small', color: Colors.white),
+                ],
+              ),
+              bottomNavigationBar: isEditing
+                  ? ClipRRect(
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
+                      ),
+                      child: BackdropFilter(
+                        filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                        child: BottomAppBar(
+                          color: Colors.black.withOpacity(0.4),
+                          elevation: 0,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            child: ElevatedButton(
+                              onPressed: () {
+                                FocusScope.of(context).unfocus();
+                                showUpdateConfirmationDialog(context);
+                              },
+                              style: purpleButtonStyle,
+                              child: Text(
+                                "Update",
+                                style:
+                                    getTextStyle('small', color: Colors.white),
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                )
-              : null,
+                    )
+                  : null,
+            );
+          },
         ),
       ),
     );
@@ -270,34 +276,30 @@ class _CustomerDetailsState extends ConsumerState<CustomerDetailsScreen> {
   }
 
   void updateCustomer() {
-    if (!isAllFilled()) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text("All fields are required."),
-        backgroundColor: lightSecondary,
-      ));
-      return;
-    }
-    final customerId = widget.customerId;
-    ref
-        .read(customerNotifierProvider.notifier)
-        .updateCompanyName(customerId, companyNameController.text);
-    ref.read(customerNotifierProvider.notifier).updateAddress(
-        customerId,
-        streetNameController.text,
-        cityNameController.text,
-        countryNameController.text);
-    ref.read(customerNotifierProvider.notifier).updateContactDetails(
-        customerId,
-        firstNameController.text,
-        lastNameController.text,
-        emailController.text,
-        mobileController.text);
-
-    ref
-        .read(invoiceNotifierProvider.notifier)
-        .updateInvoiceCust(customerId, companyNameController.text);
-
     setState(() {
+      if (!isAllFilled()) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("All fields are required."),
+          backgroundColor: lightSecondary,
+        ));
+        return;
+      }
+      final customerId = widget.customerId;
+      ref.read(customerNotifierProvider.notifier).updateCompany(
+          id: customerId,
+          newCompanyName: companyNameController.text,
+          newStreet: streetNameController.text,
+          newCity: cityNameController.text,
+          newCountry: countryNameController.text,
+          newFirstName: firstNameController.text,
+          newLastName: lastNameController.text,
+          newEmail: emailController.text,
+          newMobile: mobileController.text);
+
+      ref
+          .read(invoiceNotifierProvider.notifier)
+          .updateInvoiceCust(customerId, companyNameController.text);
+
       isEditing = false;
     });
   }

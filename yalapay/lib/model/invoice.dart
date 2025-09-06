@@ -49,18 +49,6 @@ class Invoice {
     return total;
   }
 
-  void removePayment(String id, List<Cheque> cheques) {
-    payments.removeWhere((payment) => payment.id == id);
-    updateInvoiceBalance(cheques);
-    updateStatus();
-  }
-
-  void addPayment(Payment payment, List<Cheque> cheques) {
-    payments.add(payment);
-    updateInvoiceBalance(cheques);
-    updateStatus();
-  }
-
   Invoice(
       {required this.id,
       required this.customerId,
@@ -69,6 +57,16 @@ class Invoice {
       required this.invoiceDate,
       required this.dueDate})
       : invoiceBalance = amount;
+
+  Invoice.v2(
+      {required this.id,
+      required this.customerId,
+      required this.customerName,
+      required this.amount,
+      required this.invoiceDate,
+      required this.dueDate,
+      required this.invoiceBalance,
+      required this.status});
 
   factory Invoice.fromJson(Map<String, dynamic> map) {
     return Invoice(
@@ -80,12 +78,26 @@ class Invoice {
         dueDate: map['dueDate']);
   }
 
+  factory Invoice.fromJson2(Map<String, dynamic> map) {
+    return Invoice.v2(
+        id: map['id'],
+        customerId: map['customerId'],
+        customerName: map['customerName'],
+        amount: map['amount'],
+        invoiceDate: map['invoiceDate'],
+        dueDate: map['dueDate'],
+        invoiceBalance: map['invoiceBalance'],
+        status: map['status']);
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'customerId': customerId,
         'customerName': customerName,
         'amount': amount,
         'invoiceDate': invoiceDate,
-        'dueDate': dueDate
+        'dueDate': dueDate,
+        'invoiceBalance': invoiceBalance,
+        'status': status,
       };
 }

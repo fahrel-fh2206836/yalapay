@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/constants/constants.dart';
-import 'package:yalapay/providers/payment_mode_provider.dart';
 import 'package:yalapay/providers/payment_provider.dart';
 import 'package:yalapay/widget/add_screen_text_field.dart';
 import 'package:yalapay/widget/filter_dropdown.dart';
 
 class FilterSection extends ConsumerStatefulWidget {
-  const FilterSection({super.key});
+  final String invoiceId;
+  const FilterSection({super.key, required this.invoiceId});
 
   @override
   _FilterSectionState createState() => _FilterSectionState();
@@ -27,12 +27,12 @@ class _FilterSectionState extends ConsumerState<FilterSection> {
     super.initState();
     minAmountController.addListener(() {
       if (isAmountFilter && minAmountController.text.isNotEmpty) {
-        onFilterChanged(ref);
+        onFilterChanged(ref, widget.invoiceId);
       }
     });
     modeController.addListener(() {
       if (isModeFilter && modeController.text.isNotEmpty) {
-        onFilterChanged(ref);
+        onFilterChanged(ref, widget.invoiceId);
       }
     });
   }
@@ -45,30 +45,31 @@ class _FilterSectionState extends ConsumerState<FilterSection> {
       isAfterDateFilter = filterOn == "After Date";
 
       if (filterOn == "No Filter") {
-        clearFilters(ref);
+        clearFilters(ref, widget.invoiceId);
       } else {
-        onFilterChanged(ref); // Trigger filter update when filter type changes
+        onFilterChanged(ref,
+            widget.invoiceId); // Trigger filter update when filter type changes
       }
     });
   }
 
-  void onFilterChanged(WidgetRef ref) {
+  void onFilterChanged(WidgetRef ref, String invoiceId) {
     final paymentNotifier = ref.read(paymentNotifierProvider.notifier);
 
     if (isAmountFilter && minAmountController.text.isNotEmpty) {
-      paymentNotifier
-          .filterPaymentByAmount(double.parse(minAmountController.text));
+      paymentNotifier.filterPaymentByAmount(
+          double.parse(minAmountController.text), invoiceId);
     } else if (isModeFilter && modeController.text.isNotEmpty) {
-      paymentNotifier.filterPaymentByMode(modeController.text);
+      paymentNotifier.filterPaymentByMode(modeController.text, invoiceId);
     } else if (isAfterDateFilter && selectedDate != null) {
       paymentNotifier.filterPaymentByDate(
-          selectedDate!.toIso8601String().split('T').first);
+          selectedDate!.toIso8601String().split('T').first, invoiceId);
     } else {
-      paymentNotifier.showAllPayments();
+      paymentNotifier.getPaymentsByInvoiceId(invoiceId);
     }
   }
 
-  void clearFilters(WidgetRef ref) {
+  void clearFilters(WidgetRef ref, String invoiceId) {
     setState(() {
       selectedFilter = "No Filter";
       isAmountFilter = false;
@@ -78,7 +79,9 @@ class _FilterSectionState extends ConsumerState<FilterSection> {
       modeController.clear();
       selectedDate = null;
     });
-    ref.read(paymentNotifierProvider.notifier).showAllPayments();
+    ref
+        .read(paymentNotifierProvider.notifier)
+        .getPaymentsByInvoiceId(invoiceId);
   }
 
   @override
@@ -134,18 +137,18 @@ class _FilterSectionState extends ConsumerState<FilterSection> {
                   isAfterDateFilter: isAfterDateFilter,
                   onDatePicked: (date) {
                     setState(() => selectedDate = date);
-                    onFilterChanged(ref);
+                    onFilterChanged(ref, widget.invoiceId);
                   },
                   paymentModes: paymentModes,
                   selectedDate: selectedDate,
-                  onAmountChanged: () => onFilterChanged(ref),
-                  onModeChanged: () => onFilterChanged(ref),
+                  onAmountChanged: () => onFilterChanged(ref, widget.invoiceId),
+                  onModeChanged: () => onFilterChanged(ref, widget.invoiceId),
                 ),
                 if (selectedFilter != "No Filter")
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () => clearFilters(ref),
+                      onPressed: () => clearFilters(ref, widget.invoiceId),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: lightPrimary,
                         shape: RoundedRectangleBorder(

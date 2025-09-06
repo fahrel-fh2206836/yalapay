@@ -3,18 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yalapay/constants/constants.dart';
+import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/model/cheque_deposit.dart';
 import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/model/payment.dart';
 import 'package:yalapay/providers/cheque_deposit_provider.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
-import 'package:yalapay/providers/deposit_status_provider.dart';
 import 'package:yalapay/providers/invoice_provider.dart';
 import 'package:yalapay/providers/payment_provider.dart';
-import 'package:yalapay/providers/return_reason_provider.dart';
 import 'package:yalapay/providers/show_nav_bar_provider.dart';
 import 'package:yalapay/routes/app_router.dart';
-import 'package:yalapay/screens/common_screens/report_screen.dart';
 import 'package:yalapay/widget/delete_record_confirmation.dart';
 import 'package:yalapay/widget/empty_screen.dart';
 import 'package:yalapay/widget/icon_container.dart';
@@ -31,9 +29,7 @@ class ChequeDepositsScreen extends ConsumerStatefulWidget {
 
 class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
   String statusDropdownValue = "Cashed";
-  String returnDropdownValue = "No funds/insufficient funds";
-  DateTime dateTime = DateTime.now();
-  List<ChequeDeposit> selectedDeposits = [];
+  ChequeDeposit? selectedDeposit;
 
   @override
   void initState() {
@@ -54,77 +50,57 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
   }
 
   bool isFilled() {
-    return selectedDeposits.isNotEmpty;
+    return selectedDeposit != null;
   }
 
-  void updateInvoiceBalance({required int chequeNo}) {
-    ref.watch(paymentNotifierProvider);
-    ref.watch(invoiceNotifierProvider);
-    final cheques = ref.watch(chequeNotifierProvider);
-    try {
-      Payment payment = ref
-          .read(paymentNotifierProvider.notifier)
-          .getPaymentWithChequeNo(chequeNo);
-      Invoice invoice = ref
-          .read(invoiceNotifierProvider.notifier)
-          .getInvoice(payment.invoiceNo);
-      invoice.updateInvoiceBalance(cheques);
-      invoice.updateStatus();
-    } catch (e) {
-      print(e);
-    }
+  Future<void> updateInvoiceBalance({required int chequeNo}) async {
+    ref.watch(chequeNotifierProvider);
+    Cheque? cheque =
+        await ref.read(chequeNotifierProvider.notifier).getCheque(chequeNo);
+    Payment? payment = await ref
+        .read(paymentNotifierProvider.notifier)
+        .getPaymentWithChequeNo(chequeNo);
+    Invoice? invoice = await ref
+        .read(invoiceNotifierProvider.notifier)
+        .getInvoice(payment!.invoiceNo);
+    ref.watch(paymentNotifierProvider).when(
+          data: (paymentsList) {
+            List<Payment> invoicePayments = paymentsList
+                .where((payment) => payment.invoiceNo == invoice!.id)
+                .toList();
+            invoice!.payments = invoicePayments;
+          },
+          error: (err, stack) => Text('Error: $err'),
+          loading: () => const CircularProgressIndicator(),
+        );
+    ref.watch(chequeNotifierProvider).when(
+          data: (cheques) {
+            invoice!.updateInvoiceBalance(cheques);
+            invoice.updateStatus();
+            ref
+                .read(invoiceNotifierProvider.notifier)
+                .removeInvoice(invoice.id);
+            ref.read(invoiceNotifierProvider.notifier).addInvoice(invoice);
+          },
+          error: (err, stack) => Text('Error: $err'),
+          loading: () => const CircularProgressIndicator(),
+        );
   }
 
-  void showDatePickerDialog() {
-    showDatePicker(
-            context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime.now(),
-            lastDate: DateTime(2101))
-        .then((value) {
-      setState(() {
-        if (value != null) {
-          dateTime = value;
-        }
-      });
-    });
-  }
+  void handleStatusUpdate() async {
+    ref
+        .read(chequeDepositNotifierProvider.notifier)
+        .updateStatus(selectedDeposit!.id, statusDropdownValue);
 
-  void handleStatusUpdate() {
+    await ref.read(chequeNotifierProvider.notifier).updateChequeListStatus(
+        chequeNoList: selectedDeposit!.chequeNos, status: statusDropdownValue);
+
+    await ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
+        chequeNoList: selectedDeposit!.chequeNos,
+        date: DateTime.now().toString().substring(0, 10),
+        type: DateType.cashedDate);
     setState(() {
-      for (var deposit in selectedDeposits) {
-        ref
-            .read(chequeDepositNotifierProvider.notifier)
-            .updateStatus(deposit.id, statusDropdownValue);
-
-        if (statusDropdownValue == "Cashed") {
-          ref.read(chequeNotifierProvider.notifier).updateChequeListStatus(
-              chequeNoList: deposit.chequeNos, status: statusDropdownValue);
-        }
-
-        if (statusDropdownValue == "Cashed" ||
-            statusDropdownValue == "Cashed with Returns") {
-          ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
-              chequeNoList: deposit.chequeNos,
-              date: DateTime.now().toString().substring(0, 10),
-              type: DateType.cashedDate);
-        }
-
-        if (statusDropdownValue == "Cashed with Returns") {
-          ref.read(chequeNotifierProvider.notifier).updateChequeListStatus(
-              chequeNoList: deposit.chequeNos, status: "Returned");
-          ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
-              chequeNoList: deposit.chequeNos,
-              date: dateTime.toString().substring(0, 10),
-              type: DateType.returnedDate);
-          ref.read(chequeNotifierProvider.notifier).setReturnInfo(
-              chequeNoList: deposit.chequeNos, reason: returnDropdownValue);
-          for (var chequeNo in deposit.chequeNos) {
-            updateInvoiceBalance(chequeNo: chequeNo);
-          }
-        }
-      }
-      selectedDeposits = [];
+      selectedDeposit = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -135,6 +111,20 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
       ),
     );
     Navigator.of(context).pop(); //Hide the modal sheet
+  }
+
+  void handleContinue() {
+    setState(() {
+      Navigator.of(context).pop();
+      context.pushNamed(AppRouter.chequeDepositUpdate.name,
+          pathParameters: {'chequeDepositId': selectedDeposit!.id}).then((_) {
+        setState(() {
+          ref.watch(chequeDepositNotifierProvider);
+          selectedDeposit = null;
+          statusDropdownValue = "Cashed";
+        });
+      });
+    });
   }
 
   void handleIncompleteFields() {
@@ -171,7 +161,7 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setModalState) {
             return SizedBox(
-              height: screenHeight(context) * 0.6,
+              height: screenHeight(context) * 0.3,
               child: Padding(
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
@@ -216,73 +206,8 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
                       error: (err, stack) => Text('Error: $err'),
                       loading: () => const CircularProgressIndicator(),
                     ),
-                    if (statusDropdownValue == "Cashed with Returns")
-                      Column(
-                        children: [
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Text("Return Reason",
-                                  style: getTextStyle('medium',
-                                      color: Colors.white)),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          returnReasonList.when(
-                            data: (reasonList) => FilterDropdown(
-                              selectedFilter: returnDropdownValue,
-                              options: reasonList,
-                              onSelected: (newValue) {
-                                setState(() {
-                                  returnDropdownValue = newValue!;
-                                });
-                                setModalState(() {
-                                  returnDropdownValue = newValue!;
-                                });
-                              },
-                            ),
-                            error: (err, stack) => Text('Error: $err'),
-                            loading: () => const CircularProgressIndicator(),
-                          ),
-                          const SizedBox(height: 20),
-                          Row(
-                            children: [
-                              Text("Return Date",
-                                  style: getTextStyle('medium',
-                                      color: Colors.white)),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () {
-                              showDatePicker(
-                                context: context,
-                                initialDate: DateTime.now(),
-                                firstDate: DateTime.now(),
-                                lastDate: DateTime(2101),
-                              ).then((value) {
-                                if (value != null) {
-                                  setState(() {
-                                    dateTime = value;
-                                  });
-                                  setModalState(() {
-                                    dateTime = value;
-                                  });
-                                }
-                              });
-                            },
-                            child: SizedBox(
-                              width: double.infinity,
-                              child: DateField(
-                                label:
-                                    '${dateTime.year}-${dateTime.month}-${dateTime.day}',
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
                     const Spacer(),
-                    buildUpdateButton(),
+                    buildButton(),
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -316,7 +241,6 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
         icon: const Icon(Icons.arrow_back, color: Colors.white),
         onPressed: () {
           ref.read(showNavBarNotifierProvider.notifier).showBottomNavBar(true);
-          ref.read(chequeNotifierProvider.notifier).setByStatus('Awaiting');
           Navigator.of(context).pop();
         },
       ),
@@ -335,16 +259,16 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
   }
 
   Widget buildChequeDepositItem(ChequeDeposit deposit) {
-    final isSelected = selectedDeposits.contains(deposit);
+    final isSelected = selectedDeposit == deposit;
 
     return GestureDetector(
       onTap: () {
         if (deposit.status == 'Deposited') {
           setState(() {
             if (isSelected) {
-              selectedDeposits.remove(deposit);
+              selectedDeposit = null;
             } else {
-              selectedDeposits.add(deposit);
+              selectedDeposit = deposit;
             }
           });
         }
@@ -363,7 +287,7 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Deposit ID: ${deposit.id}',
+                      'ID: ${deposit.id}',
                       style: getTextStyle('smallBold', color: lightSecondary),
                     ),
                     const SizedBox(height: 4),
@@ -440,59 +364,20 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
     );
   }
 
-  Widget buildReturnReasonSection(
-      AsyncValue<List<String>> returnReasonList, StateSetter setModalState) {
-    return returnReasonList.when(
-      data: (reasonList) => FilterDropdown(
-        selectedFilter: returnDropdownValue,
-        options: reasonList,
-        onSelected: (newValue) {
-          setModalState(() {
-            returnDropdownValue = newValue!;
-          });
-        },
-      ),
-      error: (err, stack) => Text('Error: $err'),
-      loading: () => const CircularProgressIndicator(),
-    );
-  }
-
-  SizedBox buildReturnDateField(StateSetter setModalState) {
-    return SizedBox(
-      width: double.infinity,
-      child: GestureDetector(
-        onTap: () {
-          showDatePicker(
-            context: context,
-            initialDate: DateTime.now(),
-            firstDate: DateTime.now(),
-            lastDate: DateTime(2101),
-          ).then((value) {
-            if (value != null) {
-              setModalState(() {
-                dateTime = value;
-              });
-            }
-          });
-        },
-        child: SizedBox(
-          width: double.infinity,
-          child: DateField(
-            label: '${dateTime.year}-${dateTime.month}-${dateTime.day}',
-          ),
-        ),
-      ),
-    );
-  }
-
-  SizedBox buildUpdateButton() {
+  SizedBox buildButton() {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: isFilled() ? handleStatusUpdate : handleIncompleteFields,
+        onPressed: isFilled() && statusDropdownValue == "Cashed"
+            ? handleStatusUpdate
+            : isFilled() && statusDropdownValue == "Cashed with Returns"
+                ? handleContinue
+                : handleIncompleteFields,
         style: isFilled() ? purpleButtonStyle : greyButtonStyle,
-        child:
-            Text("Update", style: getTextStyle('small', color: Colors.white)),
+        child: statusDropdownValue == "Cashed"
+            ? Text("Update", style: getTextStyle('small', color: Colors.white))
+            : Text("Continue",
+                style: getTextStyle('small', color: Colors.white)),
       ),
     );
   }
@@ -505,7 +390,6 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
       canPop: false,
       onPopInvokedWithResult: (didPop, result) async {
         if (!didPop) {
-          ref.read(chequeNotifierProvider.notifier).setByStatus('Awaiting');
           ref.read(showNavBarNotifierProvider.notifier).showBottomNavBar(true);
           Navigator.of(context).pop(result);
         }
@@ -531,7 +415,14 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
               child: Column(
                 children: [
                   const SizedBox(height: 20),
-                  Expanded(child: buildChequeDepositList(chequeDeposits)),
+                  chequeDeposits.when(
+                    data: (depositsList) {
+                      return Expanded(
+                          child: buildChequeDepositList(depositsList));
+                    },
+                    error: (err, stack) => Text('Error: $err'),
+                    loading: () => const CircularProgressIndicator(),
+                  ),
                 ],
               ),
             ),
@@ -567,47 +458,51 @@ class ChequeDepositsScreenState extends ConsumerState<ChequeDepositsScreen> {
           message: 'Are you sure you want to delete this deposit?',
           itemToDelete: deposit,
           deleteFunction: (deposit) async {
-            setState(() {
-              //Update Individual Cheque Status to Awaiting.
-              ref.read(chequeNotifierProvider.notifier).updateChequeListStatus(
-                  chequeNoList: deposit.chequeNos, status: 'Awaiting');
+            //Update Individual Cheque Status to Awaiting.
+            await ref
+                .read(chequeNotifierProvider.notifier)
+                .updateChequeListStatus(
+                    chequeNoList: deposit.chequeNos, status: 'Awaiting');
 
-              //Set Deposit Date to Empty ''.
-              ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
-                  chequeNoList: deposit.chequeNos,
-                  date: '',
-                  type: DateType.depositDate);
-
-              if (deposit.status == "Cashed" ||
-                  deposit.status == "Cashed with Returns") {
-                //Set Cashed Date to Empty ''.
-                ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
+            //Set Deposit Date to Empty ''.
+            await ref
+                .read(chequeNotifierProvider.notifier)
+                .updateChequeListDate(
                     chequeNoList: deposit.chequeNos,
                     date: '',
-                    type: DateType.cashedDate);
-              }
-              if (deposit.status == "Cashed with Returns") {
-                //Set Returned Date to Empty ''.
-                ref.read(chequeNotifierProvider.notifier).updateChequeListDate(
-                    chequeNoList: deposit.chequeNos,
-                    date: '',
-                    type: DateType.returnedDate);
+                    type: DateType.depositDate);
 
-                //Set Return reason to Empty ''.
-                ref
-                    .read(chequeNotifierProvider.notifier)
-                    .setReturnInfo(chequeNoList: deposit.chequeNos, reason: '');
+            if (deposit.status == "Cashed" ||
+                deposit.status == "Cashed with Returns") {
+              //Set Cashed Date to Empty ''.
+              await ref
+                  .read(chequeNotifierProvider.notifier)
+                  .updateChequeListDate(
+                      chequeNoList: deposit.chequeNos,
+                      date: '',
+                      type: DateType.cashedDate);
+            }
+            if (deposit.status == "Cashed with Returns") {
+              //Set Returned Date to Empty ''.
+              await ref
+                  .read(chequeNotifierProvider.notifier)
+                  .updateChequeListDate(
+                      chequeNoList: deposit.chequeNos,
+                      date: '',
+                      type: DateType.returnedDate);
 
-                //Update Invoice Balance.
-                for (var chequeNo in deposit.chequeNos) {
-                  updateInvoiceBalance(chequeNo: chequeNo);
-                }
-              }
-              //Delete Cheque Deposit
+              //Set Return reason to Empty ''.
               ref
-                  .read(chequeDepositNotifierProvider.notifier)
-                  .removeChequeDeposit(deposit.id);
-            });
+                  .read(chequeNotifierProvider.notifier)
+                  .setReturnInfo(chequeNoList: deposit.chequeNos, reason: '');
+              for (var chequeNo in deposit.chequeNos) {
+                await updateInvoiceBalance(chequeNo: chequeNo);
+              }
+            }
+            //Delete Cheque Deposit
+            await ref
+                .read(chequeDepositNotifierProvider.notifier)
+                .removeChequeDeposit(deposit.id);
           },
         );
       },

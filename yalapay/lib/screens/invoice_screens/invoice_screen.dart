@@ -21,75 +21,80 @@ class InvoiceScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final invoices = ref.watch(invoiceNotifierProvider);
-
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-      },
-      child: BackgroundGradient(
-        colors: const [
-          darkSecondary,
-          darkPrimary,
-        ],
-        child: Scaffold(
-          backgroundColor: Colors.transparent,
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            backgroundColor: Colors.transparent,
-            title: Row(
-              children: [
-                Text(
-                  'Invoices',
-                  style: getTextStyle('xlargeBold', color: Colors.white),
-                ),
-              ],
-            ),
-            actions: const [
-              YalapayIcon(),
-              SizedBox(width: 16),
+    return invoices.when(
+      data: (invoices) {
+        return GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          child: BackgroundGradient(
+            colors: const [
+              darkSecondary,
+              darkPrimary,
             ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Column(
-              children: [
-                const SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: SharedSearchBar(
-                    hintText: "Search ID or Customer",
-                    onChanged: (value) {
-                      final invoiceNotifier =
-                          ref.read(invoiceNotifierProvider.notifier);
-                      if (value.isEmpty) {
-                        invoiceNotifier.showAll();
-                      } else {
-                        invoiceNotifier.filterByIdName(value);
-                      }
-                    },
-                  ),
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                automaticallyImplyLeading: false,
+                backgroundColor: Colors.transparent,
+                title: Row(
+                  children: [
+                    Text(
+                      'Invoices',
+                      style: getTextStyle('xlargeBold', color: Colors.white),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 15),
-                Expanded(
-                  child: InvoiceList(
-                    invoices: invoices,
-                    onDelete: (invoice) =>
-                        showDeleteDialog(context, ref, invoice),
-                    onView: (invoice) {
-                      ref
-                          .read(selectedInvoiceNotifierProvider.notifier)
-                          .setInvoice(invoice);
-                      context.pushNamed(AppRouter.invoiceDetails.name);
-                    },
-                  ),
+                actions: const [
+                  YalapayIcon(),
+                  SizedBox(width: 16),
+                ],
+              ),
+              body: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: SharedSearchBar(
+                        hintText: "Search Invoice ID",
+                        onChanged: (value) {
+                          final invoiceNotifier =
+                              ref.read(invoiceNotifierProvider.notifier);
+                          if (value.isEmpty) {
+                            invoiceNotifier.showAll();
+                          } else {
+                            invoiceNotifier.filterById(value);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 15),
+                    Expanded(
+                      child: InvoiceList(
+                        invoices: invoices,
+                        onDelete: (invoice) =>
+                            showDeleteDialog(context, ref, invoice),
+                        onView: (invoice) {
+                          ref
+                              .read(selectedInvoiceNotifierProvider.notifier)
+                              .setInvoice(invoice);
+                          context.pushNamed(AppRouter.invoiceDetails.name);
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
                 ),
-                const SizedBox(height: 10),
-              ],
+              ),
+              floatingActionButton: const AddInvoiceButton(),
             ),
           ),
-          floatingActionButton: const AddInvoiceButton(),
-        ),
-      ),
+        );
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
     );
   }
 }

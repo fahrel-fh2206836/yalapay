@@ -38,248 +38,265 @@ class _PaymentDetailsScreenState extends ConsumerState<PaymentDetailsScreen> {
     });
   }
 
-  // Will do for cheque status's cashed and cashed with returns on phase 2 since
-  //cheque-deposit.json only has depositDate for now.
   void setDatesForCheque(Cheque cheque) {
     var chequeDeposits = ref.read(chequeDepositNotifierProvider);
-
-    for (var deposit in chequeDeposits) {
-      if (deposit.chequeNos.contains(cheque.chequeNo)) {
-        cheque.depositDate = deposit.depositDate;
-      }
-    }
+    chequeDeposits.when(
+      data: (chequeDeposits) {
+        for (var deposit in chequeDeposits) {
+          if (deposit.chequeNos.contains(cheque.chequeNo)) {
+            cheque.depositDate = deposit.depositDate;
+          }
+        }
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final invoice = ref.watch(selectedInvoiceNotifierProvider);
-    var payments = invoice.payments;
-    Payment payment = payments.firstWhere((p) => p.id == widget.paymentId);
+    return invoice.when(
+      data: (selectedInvoice) {
+        var payments = selectedInvoice.payments;
+        Payment payment = payments.firstWhere((p) => p.id == widget.paymentId);
 
-    if (payment.paymentMode == 'Cheque') {
-      var chequeList = ref.read(chequeNotifierProvider);
-      cheque = chequeList.firstWhere((c) => c.chequeNo == payment.chequeNo);
-      if (cheque?.status == "Deposited" && cheque?.depositDate == '') {
-        setDatesForCheque(cheque!);
-      }
-    }
-
-    Future<void> selectDate(BuildContext context) async {
-      final DateTime? pickedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2101),
-      );
-      if (pickedDate != null) {
-        setState(() {
-          dueDate =
-              "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
-        });
-      }
-    }
-
-    void updateCheque() {
-      if (dueDate != null && dueDate != cheque!.dueDate) {
-        ref
-            .read(chequeNotifierProvider.notifier)
-            .updateChequeDue(cheque!.chequeNo, dueDate!);
-      }
-      if (selectedImageUri != null &&
-          selectedImageUri != cheque!.chequeImageUri) {
-        ref
-            .read(chequeNotifierProvider.notifier)
-            .updateChequeImage(cheque!.chequeNo, selectedImageUri!);
-      }
-      setState(() {
-        isEditing = false;
-      });
-    }
-
-    void showUpdateConfirmationDialog(BuildContext context) {
-      showDialog(
-        context: context,
-        builder: (BuildContext context) {
-          return ConfirmationDialog(
-            type: "Cheque",
-            title: "Confirm Update",
-            content: "Are you sure you want to update the cheque details?",
-            onConfirm: updateCheque,
-          );
-        },
-      );
-    }
-
-    return GestureDetector(
-      onTap: () {
-        FocusScope.of(context).unfocus();
-      },
-      child: Scaffold(
-        extendBodyBehindAppBar: true,
-        extendBody: true,
-        appBar: AppBar(
-          automaticallyImplyLeading: false,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          flexibleSpace: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-              child: Container(
-                color: Colors.black.withOpacity(0.2),
-              ),
-            ),
-          ),
-          title: isEditing
-              ? Text(
-                  "Editing Payment",
-                  style: getTextStyle('largeBold', color: Colors.white),
-                )
-              : Text(
-                  "Payment Details",
-                  style: getTextStyle('largeBold', color: Colors.white),
-                ),
-          centerTitle: true,
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () {
-              ref
-                  .read(showNavBarNotifierProvider.notifier)
-                  .showBottomNavBar(false);
-              Navigator.of(context).pop();
-            },
-          ),
-          actions: [
-            if (payment.paymentMode == 'Cheque')
-              IconButton(
-                icon: Icon(isEditing ? Icons.done : Icons.edit),
-                onPressed: () {
-                  setState(() {
-                    isEditing = !isEditing;
-                    dueDate = cheque?.dueDate;
-                    selectedImageUri = cheque?.chequeImageUri;
-                  });
+        if (payment.paymentMode == 'Cheque') {
+          ref.watch(chequeNotifierProvider).when(
+                data: (cheques) {
+                  cheque =
+                      cheques.firstWhere((c) => c.chequeNo == payment.chequeNo);
+                  if (cheque?.status == "Deposited" &&
+                      cheque?.depositDate == '') {
+                    setDatesForCheque(cheque!);
+                  }
                 },
-              ),
-          ],
-        ),
-        body: Stack(
-          children: [
-            Container(
-              decoration: const BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage("assets/images/bg4.jpg"),
-                  fit: BoxFit.cover,
-                ),
-              ),
-              child: Container(color: Colors.black.withOpacity(0.3)),
-            ),
-            SingleChildScrollView(
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    const SizedBox(height: 40),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          height: 10,
-                          width: 10,
-                          decoration: BoxDecoration(
-                            color: getInvoiceStatusColor(payment.paymentMode),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                        Text(
-                          "Payment ID: ${widget.paymentId}",
-                          style:
-                              getTextStyle('xlargeBold', color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: FrostedGlassBox(
-                        boxWidth: double.infinity,
-                        boxChild: PaymentDetailsSection(payment: payment),
-                      ),
-                    ),
-                    if (payment.paymentMode == 'Cheque') ...[
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: FrostedGlassBox(
-                          boxWidth: double.infinity,
-                          boxChild: ChequeDetailsSection(
-                            cheque: cheque!,
-                            isEditing: isEditing,
-                            dueDate: dueDate,
-                            selectDate: selectDate,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      Padding(
-                        padding: const EdgeInsets.all(10.0),
-                        child: FrostedGlassBox(
-                          boxWidth: double.infinity,
-                          boxChild: ChequeImageSection(
-                            cheque: cheque!,
-                            isEditing: isEditing,
-                            selectedImageUri:
-                                selectedImageUri ?? cheque!.chequeImageUri,
-                            onImageSelected: (newImageUri) {
-                              setState(() {
-                                selectedImageUri = newImageUri;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-        bottomNavigationBar: isEditing
-            ? ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
+                error: (err, stack) => Text('Error: $err'),
+                loading: () => const CircularProgressIndicator(),
+              );
+        }
+
+        Future<void> selectDate(BuildContext context) async {
+          final DateTime? pickedDate = await showDatePicker(
+            context: context,
+            initialDate: DateTime.now(),
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2101),
+          );
+          if (pickedDate != null) {
+            setState(() {
+              dueDate =
+                  "${pickedDate.year}-${pickedDate.month.toString().padLeft(2, '0')}-${pickedDate.day.toString().padLeft(2, '0')}";
+            });
+          }
+        }
+
+        void updateCheque() {
+          if (dueDate != null && dueDate != cheque!.dueDate) {
+            ref
+                .read(chequeNotifierProvider.notifier)
+                .updateChequeDue(cheque!.chequeNo, dueDate!);
+          }
+          if (selectedImageUri != null &&
+              selectedImageUri != cheque!.chequeImageUri) {
+            ref
+                .read(chequeNotifierProvider.notifier)
+                .updateChequeImage(cheque!.chequeNo, selectedImageUri!);
+          }
+          setState(() {
+            isEditing = false;
+          });
+        }
+
+        void showUpdateConfirmationDialog(BuildContext context) {
+          showDialog(
+            context: context,
+            builder: (BuildContext context) {
+              return ConfirmationDialog(
+                type: "Cheque",
+                title: "Confirm Update",
+                content: "Are you sure you want to update the cheque details?",
+                onConfirm: updateCheque,
+              );
+            },
+          );
+        }
+
+        return GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
+          child: Scaffold(
+            extendBodyBehindAppBar: true,
+            extendBody: true,
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              flexibleSpace: ClipRect(
                 child: BackdropFilter(
                   filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                  child: BottomAppBar(
-                    color: Colors.black.withOpacity(0.4),
-                    elevation: 0,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      child: ElevatedButton(
-                        onPressed: () {
-                          FocusScope.of(context).unfocus();
-                          showUpdateConfirmationDialog(context);
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: lightPrimary,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.2),
+                  ),
+                ),
+              ),
+              title: isEditing
+                  ? Text(
+                      "Editing Payment",
+                      style: getTextStyle('largeBold', color: Colors.white),
+                    )
+                  : Text(
+                      "Payment Details",
+                      style: getTextStyle('largeBold', color: Colors.white),
+                    ),
+              centerTitle: true,
+              leading: IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () {
+                  ref
+                      .read(showNavBarNotifierProvider.notifier)
+                      .showBottomNavBar(false);
+                  Navigator.of(context).pop();
+                },
+              ),
+              actions: [
+                if (payment.paymentMode == 'Cheque')
+                  IconButton(
+                    icon: Icon(isEditing ? Icons.done : Icons.edit),
+                    onPressed: () {
+                      setState(() {
+                        isEditing = !isEditing;
+                        dueDate = cheque?.dueDate;
+                        selectedImageUri = cheque?.chequeImageUri;
+                      });
+                    },
+                  ),
+              ],
+            ),
+            body: Stack(
+              children: [
+                Container(
+                  decoration: const BoxDecoration(
+                    image: DecorationImage(
+                      image: AssetImage("assets/images/bg4.jpg"),
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  child: Container(color: Colors.black.withOpacity(0.3)),
+                ),
+                SingleChildScrollView(
+                  child: SafeArea(
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 40),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Container(
+                              height: 10,
+                              width: 10,
+                              decoration: BoxDecoration(
+                                color:
+                                    getInvoiceStatusColor(payment.paymentMode),
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 20),
+                            Text(
+                              "ID: ${widget.paymentId}",
+                              style: getTextStyle('mediumBold',
+                                  color: Colors.white),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: FrostedGlassBox(
+                            boxWidth: double.infinity,
+                            boxChild: PaymentDetailsSection(payment: payment),
                           ),
                         ),
-                        child: Text(
-                          "Update",
-                          style: getTextStyle('small', color: Colors.white),
-                        ),
-                      ),
+                        if (payment.paymentMode == 'Cheque') ...[
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: FrostedGlassBox(
+                              boxWidth: double.infinity,
+                              boxChild: ChequeDetailsSection(
+                                cheque: cheque!,
+                                isEditing: isEditing,
+                                dueDate: dueDate,
+                                selectDate: selectDate,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: FrostedGlassBox(
+                              boxWidth: double.infinity,
+                              boxChild: ChequeImageSection(
+                                cheque: cheque!,
+                                isEditing: isEditing,
+                                selectedImageUri:
+                                    selectedImageUri ?? cheque!.chequeImageUri,
+                                onImageSelected: (newImageUri) {
+                                  setState(() {
+                                    selectedImageUri = newImageUri;
+                                  });
+                                },
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ),
-              )
-            : null,
-      ),
+              ],
+            ),
+            bottomNavigationBar: isEditing
+                ? ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                    ),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                      child: BottomAppBar(
+                        color: Colors.black.withOpacity(0.4),
+                        elevation: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 8),
+                          child: ElevatedButton(
+                            onPressed: () {
+                              FocusScope.of(context).unfocus();
+                              showUpdateConfirmationDialog(context);
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: lightPrimary,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            child: Text(
+                              "Update",
+                              style: getTextStyle('small', color: Colors.white),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  )
+                : null,
+          ),
+        );
+      },
+      error: (err, stack) => Text('Error: $err'),
+      loading: () => const CircularProgressIndicator(),
     );
   }
 }
@@ -451,10 +468,22 @@ class ChequeDetailsSection extends StatelessWidget {
           DetailsRow(label: "Cashed Date", value: cheque.cashedDate),
         if (cheque.status == "Returned") ...[
           DetailsRow(label: "Returned Date", value: cheque.returnedDate),
-          DetailsRow(
-            label: "Return Reason",
-            value: cheque.returnReason,
-            divider: false,
+          SizedBox(
+            height: 30,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                "Return Reason:",
+                style: getTextStyle('smallBold', color: Colors.white),
+              ),
+            ),
+          ),
+          const SizedBox(
+            height: 5,
+          ),
+          Text(
+            cheque.returnReason,
+            style: getTextStyle('small', color: Colors.white),
           ),
         ]
       ],

@@ -2,112 +2,86 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:yalapay/model/address.dart';
 import 'package:yalapay/model/contact_details.dart';
 import 'package:yalapay/model/customer.dart';
-import 'package:yalapay/repositories/customer_repository.dart';
+import 'package:yalapay/providers/repo_provider.dart';
+import 'package:yalapay/repositories/yalapay_repo.dart';
 
-class CustomerNotifier extends Notifier<List<Customer>> {
-  final CustomerRepository _repo = CustomerRepository();
-  List<Customer> _allCustomers = [];
+class CustomerNotifier extends AsyncNotifier<List<Customer>> {
+  late final YalapayRepo _repo;
+  // List<Customer> _allCustomers = [];
 
   @override
-  List<Customer> build() {
-    if (_allCustomers.isEmpty) {
-      initializeCustomers();
-    }
-    return _allCustomers;
+  Future<List<Customer>> build() async {
+    _repo = await ref.watch(repoProvider.future);
+    initializeCustomers();
+    return [];
   }
 
   Future<void> initializeCustomers() async {
-    _allCustomers = await _repo.getCustomers();
-    state = _allCustomers;
+    _repo.observeCustomer().listen((customer) {
+      state = AsyncData(customer);
+      // _allCustomers = List.from(customer);
+    }).onError((error) {
+      print(error);
+    });
   }
 
   void filterByName(String name) {
-    state = _allCustomers
-        .where((customer) =>
-            customer.companyName.toLowerCase().contains(name.toLowerCase()))
-        .toList();
+    _repo.filterCustomer(name).listen((customer) {
+      state = AsyncData(customer);
+    }).onError((error) {
+      print(error);
+    });
   }
 
-  void showAll() {
-    state = _allCustomers;
-  }
+  void showAll() => initializeCustomers();
 
-  Customer getCustomer(String id) {
-    return state.firstWhere((c) => c.id == id);
-  }
+  Future<Customer?> getCustomer(String id) => _repo.getCustomerById(id);
 
-  void updateCompanyName(String id, String newCompanyName) {
-    Customer oldCustomer = state.firstWhere((c) => c.id == id);
-    Customer newCustomer = Customer(
-        id: id,
-        companyName: newCompanyName,
-        address: oldCustomer.address,
-        contactDetails: oldCustomer.contactDetails);
-
-    _replaceCustomer(oldCustomer.id, newCustomer);
-  }
-
-  void updateAddress(
-      String id, String newStreet, String newCity, String newCountry) {
-    Customer oldCustomer = state.firstWhere((c) => c.id == id);
-    Address newAddress =
-        Address(street: newStreet, city: newCity, country: newCountry);
-    Customer newCustomer = Customer(
-        id: id,
-        companyName: oldCustomer.companyName,
-        address: newAddress,
-        contactDetails: oldCustomer.contactDetails);
-
-    _replaceCustomer(oldCustomer.id, newCustomer);
-  }
-
-  void updateContactDetails(String id, String newFirstName, String newLastName,
-      String newEmail, String newMobile) {
-    Customer oldCustomer = state.firstWhere((c) => c.id == id);
+  void updateCompany(
+      {required String id,
+      required String newCompanyName,
+      required String newStreet,
+      required String newCity,
+      required String newCountry,
+      required String newFirstName,
+      required String newLastName,
+      required String newEmail,
+      required String newMobile}) async {
     ContactDetails newContactDetails = ContactDetails(
         firstName: newFirstName,
         lastName: newLastName,
         email: newEmail,
         mobile: newMobile);
-    Customer newCustomer = Customer(
+    Address newAddress =
+        Address(street: newStreet, city: newCity, country: newCountry);
+    Customer updatedCustomer = Customer(
         id: id,
-        companyName: oldCustomer.companyName,
-        address: oldCustomer.address,
+        companyName: newCompanyName,
+        address: newAddress,
         contactDetails: newContactDetails);
-
-    _replaceCustomer(oldCustomer.id, newCustomer);
-  }
-
-  void _replaceCustomer(String id, Customer newCustomer) {
-    removeCustomer(id);
-    addCustomer(newCustomer);
+    _repo.updateCustomer(updatedCustomer);
   }
 
   void removeCustomer(String id) {
-    state = state.where((customer) => customer.id != id).toList();
-    _allCustomers =
-        _allCustomers.where((customer) => customer.id != id).toList();
-    _repo.customers = _allCustomers;
+    _repo.deleteCustomer(id);
   }
 
   void addCustomer(Customer customer) {
-    state = [...state, customer];
-    _allCustomers = [..._allCustomers, customer];
-    _repo.customers = _allCustomers;
+    _repo.addCustomer(customer);
   }
 
-  bool isCustomerExistByName(String name) =>
-      _allCustomers.any((customer) => customer.companyName == name);
-
-  bool isCustomerExistById(String id) =>
-      _allCustomers.any((customer) => customer.id == id);
+  Future<bool> isCustomerExistByName(String name) async =>
+      await _repo.isCustomerExistByName(name);
 
   void sortById() {
-    _allCustomers.sort((a, b) => a.id.compareTo(b.id));
-    state = List.from(_allCustomers);
+    _repo.sortCustomerById().listen((customer) {
+      state = AsyncData(customer);
+    }).onError((error) {
+      print(error);
+    });
   }
 }
 
 final customerNotifierProvider =
-    NotifierProvider<CustomerNotifier, List<Customer>>(
+    AsyncNotifierProvider<CustomerNotifier, List<Customer>>(
         () => CustomerNotifier());

@@ -2,10 +2,10 @@ import 'package:yalapay/model/address.dart';
 import 'package:yalapay/model/contact_details.dart';
 
 class Customer {
-  final String id;
-  final String companyName;
-  final Address address;
-  final ContactDetails contactDetails;
+  String id; //removed final
+  String companyName;
+  Address address;
+  ContactDetails contactDetails;
 
   Customer({
     required this.id,

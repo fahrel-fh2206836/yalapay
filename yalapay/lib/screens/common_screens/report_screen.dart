@@ -4,8 +4,6 @@ import 'package:yalapay/constants/constants.dart';
 import 'package:yalapay/model/invoice.dart';
 import 'package:yalapay/model/cheque.dart';
 import 'package:yalapay/styling/background.dart';
-import 'package:yalapay/providers/cheque_status_provider.dart';
-import 'package:yalapay/providers/invoice_status_provider.dart';
 import 'package:yalapay/providers/invoice_provider.dart';
 import 'package:yalapay/providers/cheque_provider.dart';
 import 'package:yalapay/widget/cheque_list.dart';
@@ -47,57 +45,82 @@ class ReportsScreenState extends ConsumerState<ReportsScreen>
   }
 
   void initializeInvoices() {
-    final allInvoices = ref.read(invoiceNotifierProvider);
-    setState(() {
-      filteredInvoices = allInvoices;
-    });
+    ref.read(invoiceNotifierProvider).when(
+          data: (invoices) {
+            setState(() {
+              filteredInvoices = invoices;
+            });
+          },
+          error: (err, stack) => Text('Error: $err'),
+          loading: () => const CircularProgressIndicator(),
+        );
   }
 
   void initializeCheques() {
-    final allCheques = ref.read(chequeNotifierProvider);
-    setState(() {
-      filteredCheques = allCheques;
-    });
+    ref.read(chequeNotifierProvider).when(
+          data: (cheques) {
+            setState(() {
+              filteredCheques = cheques;
+            });
+          },
+          error: (err, stack) => Text('Error: $err'),
+          loading: () => const CircularProgressIndicator(),
+        );
   }
 
   void applyFilters(String status, String? fromDate, String? toDate) {
-    if (tabController.index == 0) {
-      final allInvoices = ref.read(invoiceNotifierProvider);
-      setState(() {
-        selectedInvoiceStatus = status;
-        fromInvoiceDate = fromDate;
-        toInvoiceDate = toDate;
-        filteredInvoices = allInvoices.where((invoice) {
-          bool matchesStatus = (status == "All" || invoice.status == status);
-          bool matchesDate = true;
-          if (fromDate != null && toDate != null) {
-            DateTime from = DateTime.parse(fromDate);
-            DateTime to = DateTime.parse(toDate);
-            DateTime invoiceDate = DateTime.parse(invoice.dueDate);
-            matchesDate = invoiceDate.isAfter(from) && invoiceDate.isBefore(to);
-          }
-          return matchesStatus && matchesDate;
-        }).toList();
-      });
-    } else {
-      final allCheques = ref.read(chequeNotifierProvider);
-      setState(() {
-        selectedChequeStatus = status;
-        fromChequeDate = fromDate;
-        toChequeDate = toDate;
-        filteredCheques = allCheques.where((cheque) {
-          bool matchesStatus = (status == "All" || cheque.status == status);
-          bool matchesDate = true;
-          if (fromDate != null && toDate != null) {
-            DateTime from = DateTime.parse(fromDate);
-            DateTime to = DateTime.parse(toDate);
-            DateTime chequeDate = DateTime.parse(cheque.dueDate);
-            matchesDate = chequeDate.isAfter(from) && chequeDate.isBefore(to);
-          }
-          return matchesStatus && matchesDate;
-        }).toList();
-      });
-    }
+    ref.watch(invoiceNotifierProvider).when(
+          data: (invoices) {
+            if (tabController.index == 0) {
+              setState(() {
+                selectedInvoiceStatus = status;
+                fromInvoiceDate = fromDate;
+                toInvoiceDate = toDate;
+                filteredInvoices = invoices.where((invoice) {
+                  bool matchesStatus =
+                      (status == "All" || invoice.status == status);
+                  bool matchesDate = true;
+                  if (fromDate != null && toDate != null) {
+                    DateTime from = DateTime.parse(fromDate);
+                    DateTime to = DateTime.parse(toDate);
+                    DateTime invoiceDate = DateTime.parse(invoice.dueDate);
+                    matchesDate =
+                        invoiceDate.isAfter(from) && invoiceDate.isBefore(to);
+                  }
+                  return matchesStatus && matchesDate;
+                }).toList();
+              });
+            } else {
+              ref.watch(chequeNotifierProvider).when(
+                    data: (cheques) {
+                      setState(() {
+                        selectedChequeStatus = status;
+                        fromChequeDate = fromDate;
+                        toChequeDate = toDate;
+                        filteredCheques = cheques.where((cheque) {
+                          bool matchesStatus =
+                              (status == "All" || cheque.status == status);
+                          bool matchesDate = true;
+                          if (fromDate != null && toDate != null) {
+                            DateTime from = DateTime.parse(fromDate);
+                            DateTime to = DateTime.parse(toDate);
+                            DateTime chequeDate =
+                                DateTime.parse(cheque.dueDate);
+                            matchesDate = chequeDate.isAfter(from) &&
+                                chequeDate.isBefore(to);
+                          }
+                          return matchesStatus && matchesDate;
+                        }).toList();
+                      });
+                    },
+                    error: (err, stack) => Text('Error: $err'),
+                    loading: () => const CircularProgressIndicator(),
+                  );
+            }
+          },
+          error: (err, stack) => Text('Error: $err'),
+          loading: () => const CircularProgressIndicator(),
+        );
   }
 
   void showFiltersBottomSheet(BuildContext context, WidgetRef ref) {
@@ -622,15 +645,17 @@ class ReportsFiltersState extends ConsumerState<ReportsFilters> {
 
 class DateField extends StatelessWidget {
   final String label;
+  final Color color;
 
-  const DateField({super.key, required this.label});
+  const DateField(
+      {super.key, required this.label, this.color = Colors.transparent});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 50,
       decoration: BoxDecoration(
-        color: Colors.transparent,
+        color: color,
         border: Border.all(color: lightPrimary, width: 2),
         borderRadius: BorderRadius.circular(10),
       ),

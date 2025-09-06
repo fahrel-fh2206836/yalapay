@@ -31,9 +31,6 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
   @override
   Widget build(BuildContext context) {
     final showBottomNavBar = ref.watch(showNavBarNotifierProvider);
-    ref.watch(customerNotifierProvider);
-    ref.watch(invoiceNotifierProvider);
-    ref.watch(chequeNotifierProvider);
 
     return Scaffold(
       body: widget.child,
@@ -75,9 +72,6 @@ class _ShellScreenState extends ConsumerState<ShellScreen> {
                     case 3:
                       context.go(AppRouter.cheque.path);
                       showAllData(showAllCheque: false);
-                      ref
-                          .read(chequeNotifierProvider.notifier)
-                          .setByStatus('Awaiting');
                       break;
                     case 4:
                       context.go(AppRouter.report.path);
