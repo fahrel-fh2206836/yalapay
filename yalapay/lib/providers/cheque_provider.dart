@@ -104,6 +104,20 @@ class ChequeNotifier extends AsyncNotifier<List<Cheque>> {
 
   void updateCheque(Cheque cheque) => _repo.updateCheque(cheque);
 
+  Future<Map<String, double>> getChequeTotalByAllStatus() async {
+    var awaiting = await _repo.getChequeTotalByStatus('Awaiting');
+    var deposited = await _repo.getChequeTotalByStatus('Deposited');
+    var cashed = await _repo.getChequeTotalByStatus('Cashed');
+    var returned = await _repo.getChequeTotalByStatus('Returned');
+
+    return {
+      'awaiting': awaiting,
+      'deposited': deposited,
+      'cashed': cashed,
+      'returned': returned
+    };
+  }
+
   Future<double> getChequeTotalByStatus(String status) =>
       _repo.getChequeTotalByStatus(status);
 }

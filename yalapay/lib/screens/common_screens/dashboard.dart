@@ -219,82 +219,63 @@ class _ChequeSummaryScrollable extends ConsumerState<ChequeSummaryScrollable> {
     return FutureBuilder(
         future: ref
             .read(chequeNotifierProvider.notifier)
-            .getChequeTotalByStatus("Awaiting"),
-        builder: (context, awaiting) {
-          return FutureBuilder(
-              future: ref
-                  .read(chequeNotifierProvider.notifier)
-                  .getChequeTotalByStatus("Deposited"),
-              builder: (context, deposited) {
-                return FutureBuilder(
-                    future: ref
-                        .read(chequeNotifierProvider.notifier)
-                        .getChequeTotalByStatus("Cashed"),
-                    builder: (context, cashed) {
-                      return FutureBuilder(
-                          future: ref
-                              .read(chequeNotifierProvider.notifier)
-                              .getChequeTotalByStatus("Returned"),
-                          builder: (context, returned) {
-                            final chequeData = [
-                              {
-                                "title": "Awaiting",
-                                "value": 'QAR ${awaiting.data.toString()}',
-                                "icon": Icons.timer_outlined
-                              },
-                              {
-                                "title": "Deposited",
-                                "value": 'QAR ${deposited.data.toString()}',
-                                "icon": Icons.send_outlined
-                              },
-                              {
-                                "title": "Cashed",
-                                "value": 'QAR ${cashed.data.toString()}',
-                                "icon": Icons.attach_money
-                              },
-                              {
-                                "title": "Returned",
-                                "value": 'QAR ${returned.data.toString()}',
-                                "icon": Icons.keyboard_return
-                              },
-                            ];
-                            return Column(
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0, vertical: 24),
-                                  child: Row(
-                                    children: [
-                                      Text(
-                                        "Cheque Statistics",
-                                        style: getTextStyle('medium',
-                                            color: Colors.white),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                SizedBox(
-                                  height: 180,
-                                  child: ListView.builder(
-                                    scrollDirection: Axis.horizontal,
-                                    itemCount: chequeData.length,
-                                    itemBuilder: (context, index) {
-                                      return ChequeBox(
-                                        title: chequeData[index]["title"]
-                                            as String,
-                                        value: chequeData[index]["value"]
-                                            as String,
-                                        icon: chequeData[index]["icon"]
-                                            as IconData,
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          });
-                    });
-              });
+            .getChequeTotalByAllStatus(),
+        builder: (context, snapshot) {
+          if (snapshot.data == null) {
+            return const CircularProgressIndicator();
+          }
+          final chequeData = [
+            {
+              "title": "Awaiting",
+              "value": 'QAR ${snapshot.data?['awaiting'].toString()}',
+              "icon": Icons.timer_outlined
+            },
+            {
+              "title": "Deposited",
+              "value": 'QAR ${snapshot.data?['deposited'].toString()}',
+              "icon": Icons.send_outlined
+            },
+            {
+              "title": "Cashed",
+              "value": 'QAR ${snapshot.data?['cashed'].toString()}',
+              "icon": Icons.attach_money
+            },
+            {
+              "title": "Returned",
+              "value": 'QAR ${snapshot.data?['returned'].toString()}',
+              "icon": Icons.keyboard_return
+            },
+          ];
+          return Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24),
+                child: Row(
+                  children: [
+                    Text(
+                      "Cheque Statistics",
+                      style: getTextStyle('medium', color: Colors.white),
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 180,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: chequeData.length,
+                  itemBuilder: (context, index) {
+                    return ChequeBox(
+                      title: chequeData[index]["title"] as String,
+                      value: chequeData[index]["value"] as String,
+                      icon: chequeData[index]["icon"] as IconData,
+                    );
+                  },
+                ),
+              ),
+            ],
+          );
         });
   }
 }
