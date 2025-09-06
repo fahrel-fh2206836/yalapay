@@ -32,23 +32,18 @@ class PaymentNotifier extends AsyncNotifier<List<Payment>> {
 
   void showAllPayments() => initializePayments();
 
-  Future<void> filterPaymentByAmount(double amount, String invoiceId) async {
-    _repo.filterPaymentByAmount(amount, invoiceId).listen((payment) {
-      state = AsyncData(payment);
-    });
-  }
-
   Future<void> filterPaymentByMode(String mode, String invoiceId) async {
     _repo.filterPaymentByMode(mode, invoiceId).listen((payment) {
       state = AsyncData(payment);
     });
   }
 
-  Future<void> filterPaymentByDate(String dateString, String invoiceId) async {
-    DateTime dateAfter = DateTime.parse(dateString);
-    _repo.filterPaymentByDate(dateAfter, invoiceId).listen((payment) {
-      state = AsyncData(payment);
-    });
+  Future<void> filterPaymentByDate(
+      DateTime startOfDate, String invoiceId) async {
+    _repo.filterPaymentByDate(startOfDate, invoiceId).listen(
+          (list) => state = AsyncData(list),
+          onError: (e, st) => state = AsyncError(e, st),
+        );
   }
 
   Future<void> getPaymentsByInvoiceId(String id) async {

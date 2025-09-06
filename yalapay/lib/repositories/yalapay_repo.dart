@@ -262,27 +262,17 @@ class YalapayRepo {
 
   Future<void> removePayment(String id) => paymentsRef.doc(id).delete();
 
-  Stream<List<Payment>> filterPaymentByAmount(
-      double minAmount, String invoiceId) {
+  Stream<List<Payment>> filterPaymentByDate(
+      DateTime startOfDate, String invoiceId) {
     return paymentsRef
         .where('invoiceNo', isEqualTo: invoiceId)
-        .where('amount', isGreaterThanOrEqualTo: minAmount)
-        .orderBy('amount') 
+        .where('paymentDate', isGreaterThanOrEqualTo: startOfDate)
+        .orderBy('paymentDate')
         .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Payment.fromJson(doc.data() as Map<String, dynamic>))
+        .map((s) => s.docs
+            .map((d) => Payment.fromJson(d.data() as Map<String, dynamic>))
             .toList());
   }
-
-  Stream<List<Payment>> filterPaymentByDate(DateTime date, String invoiceId) =>
-      paymentsRef
-          .where("paymentDate", isGreaterThanOrEqualTo: date)
-          .where('invoiceNo', isEqualTo: invoiceId)
-          .snapshots()
-          .map((snapshot) => snapshot.docs
-              .map(
-                  (doc) => Payment.fromJson(doc.data() as Map<String, dynamic>))
-              .toList());
 
   Stream<List<Payment>> filterPaymentByMode(String mode, String invoiceId) =>
       paymentsRef
@@ -314,7 +304,7 @@ class YalapayRepo {
 
   Stream<List<Cheque>> observeCheque() {
     return chequeRef.snapshots().map((snapshot) => snapshot.docs
-        .map((doc) => Cheque.fromJson2(doc.data() as Map<String, dynamic>))
+        .map((doc) => Cheque.fromJson(doc.data() as Map<String, dynamic>))
         .toList());
   }
 
@@ -323,8 +313,8 @@ class YalapayRepo {
   }
 
   Future<Cheque?> getCheque(int chequeNo) {
-    return chequeRef.doc(chequeNo.toString()).get().then((snapshot) =>
-        Cheque.fromJson2(snapshot.data() as Map<String, dynamic>));
+    return chequeRef.doc(chequeNo.toString()).get().then(
+        (snapshot) => Cheque.fromJson(snapshot.data() as Map<String, dynamic>));
   }
 
   Future<void> removeCheque(int chequeNo) async {
@@ -353,7 +343,7 @@ class YalapayRepo {
   Future<List<Cheque>> getChequesByNo(List<int> chequeNoList) async {
     QuerySnapshot querySnapshot = await chequeRef.get();
     return querySnapshot.docs
-        .map((doc) => Cheque.fromJson2(doc.data() as Map<String, dynamic>))
+        .map((doc) => Cheque.fromJson(doc.data() as Map<String, dynamic>))
         .toList()
         .where((cheque) => chequeNoList.contains(cheque.chequeNo))
         .toList();
@@ -363,7 +353,7 @@ class YalapayRepo {
     double totalAmount = 0;
     QuerySnapshot querySnapshot = await chequeRef.get();
     List<Cheque> chequeListByStatus = querySnapshot.docs
-        .map((doc) => Cheque.fromJson2(doc.data() as Map<String, dynamic>))
+        .map((doc) => Cheque.fromJson(doc.data() as Map<String, dynamic>))
         .toList()
         .where((cheque) => cheque.status == status)
         .toList();
@@ -380,8 +370,8 @@ class YalapayRepo {
 
   Stream<List<ChequeDeposit>> observeChequeDeposits() {
     return chequeDepositRef.snapshots().map((snapshot) => snapshot.docs
-        .map((doc) =>
-            ChequeDeposit.fromJson2(doc.data() as Map<String, dynamic>))
+        .map(
+            (doc) => ChequeDeposit.fromJson(doc.data() as Map<String, dynamic>))
         .toList());
   }
 
@@ -401,5 +391,5 @@ class YalapayRepo {
 
   Future<ChequeDeposit?> getChequeDepositById(String id) =>
       chequeDepositRef.doc(id).get().then((snapshot) =>
-          ChequeDeposit.fromJson2(snapshot.data() as Map<String, dynamic>));
+          ChequeDeposit.fromJson(snapshot.data() as Map<String, dynamic>));
 }

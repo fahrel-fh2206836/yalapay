@@ -1,59 +1,61 @@
+import 'package:yalapay/utils/date_utils.dart';
+
 class Cheque {
   int chequeNo;
   double amount;
   String drawer;
   String bankName;
   String status;
-  String receivedDate;
-  String dueDate;
+  String receivedDate; // yyyy-MM-dd
+  String dueDate; // yyyy-MM-dd
   String chequeImageUri;
-  late String depositDate; //For cheques that will be deposited
-  late String cashedDate; //For cheques that will be deposited
-  late String returnedDate; //For returned cheques
-  late String returnReason; //For returned cheques
+  String depositDate; // yyyy-MM-dd or ''
+  String cashedDate; // yyyy-MM-dd or ''
+  String returnedDate; // yyyy-MM-dd or ''
+  String returnReason;
 
-  Cheque(
-      {required this.chequeNo,
-      required this.amount,
-      required this.drawer,
-      required this.bankName,
-      required this.status,
-      required this.receivedDate,
-      required this.dueDate,
-      required this.chequeImageUri,
-      this.depositDate = '',
-      this.cashedDate = '',
-      this.returnedDate = '',
-      this.returnReason = ''});
+  Cheque({
+    required this.chequeNo,
+    required this.amount,
+    required this.drawer,
+    required this.bankName,
+    required this.status,
+    required this.receivedDate,
+    required this.dueDate,
+    required this.chequeImageUri,
+    this.depositDate = '',
+    this.cashedDate = '',
+    this.returnedDate = '',
+    this.returnReason = '',
+  });
 
-  String getStatus() => status;
+  static double _toDouble(dynamic v, {double fallback = 0.0}) {
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v) ?? fallback;
+    return fallback;
+  }
+
+  static int _toInt(dynamic v, {int fallback = -1}) {
+    if (v is int) return v;
+    if (v is num) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? fallback;
+    return fallback;
+  }
 
   factory Cheque.fromJson(Map<String, dynamic> map) {
     return Cheque(
-        chequeNo: map['chequeNo'],
-        amount: map['amount'],
-        drawer: map['drawer'],
-        bankName: map['bankName'],
-        status: map['status'],
-        receivedDate: map['receivedDate'],
-        dueDate: map['dueDate'],
-        chequeImageUri: map['chequeImageUri']);
-  }
-
-  factory Cheque.fromJson2(Map<String, dynamic> map) {
-    return Cheque(
-      chequeNo: map['chequeNo'],
-      amount: map['amount'],
-      drawer: map['drawer'],
-      bankName: map['bankName'],
-      status: map['status'],
-      receivedDate: map['receivedDate'],
-      dueDate: map['dueDate'],
-      chequeImageUri: map['chequeImageUri'],
-      depositDate: map['depositDate'],
-      cashedDate: map['cashedDate'],
-      returnedDate: map['returnedDate'],
-      returnReason: map['returnReason'],
+      chequeNo: _toInt(map['chequeNo']),
+      amount: _toDouble(map['amount']),
+      drawer: map['drawer'] as String,
+      bankName: map['bankName'] as String,
+      status: map['status'] as String,
+      receivedDate: toYmdString(map['receivedDate']),
+      dueDate: toYmdString(map['dueDate']),
+      chequeImageUri: map['chequeImageUri'] as String,
+      depositDate: toYmdString(map['depositDate']),
+      cashedDate: toYmdString(map['cashedDate']),
+      returnedDate: toYmdString(map['returnedDate']),
+      returnReason: (map['returnReason'] ?? '') as String,
     );
   }
 
@@ -63,12 +65,15 @@ class Cheque {
         'drawer': drawer,
         'bankName': bankName,
         'status': status,
-        'receivedDate': receivedDate,
-        'dueDate': dueDate,
+        'receivedDate': ymdStringToDateTime(receivedDate),
+        'dueDate': ymdStringToDateTime(dueDate),
         'chequeImageUri': chequeImageUri,
-        'depositDate': depositDate,
-        'cashedDate': cashedDate,
-        'returnedDate': returnedDate,
+        'depositDate':
+            depositDate.isEmpty ? null : ymdStringToDateTime(depositDate),
+        'cashedDate':
+            cashedDate.isEmpty ? null : ymdStringToDateTime(cashedDate),
+        'returnedDate':
+            returnedDate.isEmpty ? null : ymdStringToDateTime(returnedDate),
         'returnReason': returnReason,
       };
 }
